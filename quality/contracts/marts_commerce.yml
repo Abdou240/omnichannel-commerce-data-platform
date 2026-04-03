@@ -6,4 +6,3 @@ rules:
     expectation: order_id must be unique in the mart
   - name: customer_id_present
     expectation: customer_id should be populated for mart records
-

@@ -8,4 +8,3 @@ rules:
     expectation: order_status should match the known Olist order lifecycle domain
   - name: order_purchase_timestamp_present
     expectation: order_purchase_timestamp should be populated for landed records
-

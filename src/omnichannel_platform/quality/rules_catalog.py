@@ -27,8 +27,7 @@ def list_quality_assets() -> dict[str, list[str]]:
     root = repo_root()
     return {
         "contracts": sorted(
-            str(path.relative_to(root))
-            for path in (root / "quality" / "contracts").glob("*.yml")
+            str(path.relative_to(root)) for path in (root / "quality" / "contracts").glob("*.yml")
         ),
         "expectations": sorted(
             str(path.relative_to(root))
@@ -58,7 +57,9 @@ def optional_postgres_engine():
 
         from omnichannel_platform.common.clients import create_postgres_engine
     except ModuleNotFoundError:
-        LOGGER.warning("SQLAlchemy/Postgres dependencies are unavailable; skipping SQL expectations")
+        LOGGER.warning(
+            "SQLAlchemy/Postgres dependencies are unavailable; skipping SQL expectations"
+        )
         return None
 
     try:
@@ -108,7 +109,9 @@ def execute_expectation(path: Path, engine) -> QualityExpectationResult:
     )
 
 
-def write_quality_report(results: list[QualityExpectationResult], contracts: list[dict[str, Any]]) -> None:
+def write_quality_report(
+    results: list[QualityExpectationResult], contracts: list[dict[str, Any]]
+) -> None:
     report_dir = ensure_directory(repo_root() / "storage" / "checkpoints" / "quality")
     payload = {
         "contracts": contracts,

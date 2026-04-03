@@ -9,4 +9,3 @@ omnichannel_platform:
 # TODO:
 # - mirror any future macros, vars, or adapter-specific settings that become required in CI
 # - keep CI focused on scaffold-safe validation until real sources are introduced
-

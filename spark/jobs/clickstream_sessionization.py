@@ -13,7 +13,9 @@ LOGGER = get_logger(__name__)
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Spark starter job for Retailrocket sessionization.")
+    parser = argparse.ArgumentParser(
+        description="Spark starter job for Retailrocket sessionization."
+    )
     parser.add_argument("--input-path", default="data/sample/streaming/retailrocket_events.jsonl")
     parser.add_argument("--output-path", default="storage/gold/retailrocket_sessions")
     parser.add_argument("--gap-minutes", type=int, default=30)
@@ -76,7 +78,9 @@ def main() -> None:
         F.count("*").alias("event_count"),
         F.sum(F.when(F.col("event_type") == "view", 1).otherwise(0)).alias("view_count"),
         F.sum(F.when(F.col("event_type") == "addtocart", 1).otherwise(0)).alias("addtocart_count"),
-        F.sum(F.when(F.col("event_type") == "transaction", 1).otherwise(0)).alias("transaction_count"),
+        F.sum(F.when(F.col("event_type") == "transaction", 1).otherwise(0)).alias(
+            "transaction_count"
+        ),
         F.min("item_id").alias("sample_item_id"),
     )
 

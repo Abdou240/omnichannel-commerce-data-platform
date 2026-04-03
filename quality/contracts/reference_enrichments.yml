@@ -8,4 +8,3 @@ rules:
     expectation: FX rates must be positive
   - name: weather_date_present
     expectation: weather enrichments must include a weather date
-

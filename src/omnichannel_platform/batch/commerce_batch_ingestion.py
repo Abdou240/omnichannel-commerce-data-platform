@@ -318,7 +318,9 @@ def ingest_dummyjson(plan: BatchSourcePlan, engine: Engine) -> int:
                 params={"limit": page_size, "skip": skip},
             )
         except requests.RequestException:
-            LOGGER.warning("DummyJSON request failed, using local sample payload instead", exc_info=True)
+            LOGGER.warning(
+                "DummyJSON request failed, using local sample payload instead", exc_info=True
+            )
             payload = load_dummyjson_fallback()
             used_fallback = True
 
@@ -364,7 +366,9 @@ def ingest_dummyjson(plan: BatchSourcePlan, engine: Engine) -> int:
         row_count=len(flattened_rows),
         metadata={"page_size": page_size, "fallback": used_fallback},
     )
-    insert_many_documents(mongo_database_name(), plan.raw_collection or "dummyjson_products_raw", raw_documents)
+    insert_many_documents(
+        mongo_database_name(), plan.raw_collection or "dummyjson_products_raw", raw_documents
+    )
 
     dataframe = pd.DataFrame(
         flattened_rows,
@@ -375,7 +379,9 @@ def ingest_dummyjson(plan: BatchSourcePlan, engine: Engine) -> int:
     return loaded_rows
 
 
-def generate_weather_fallback_rows(plan: BatchSourcePlan, ingested_at: datetime) -> list[dict[str, Any]]:
+def generate_weather_fallback_rows(
+    plan: BatchSourcePlan, ingested_at: datetime
+) -> list[dict[str, Any]]:
     geographies = plan.details.get("geographies", [{"city": "sao_paulo"}])
     dates = pd.date_range(plan.details["start_date"], plan.details["end_date"], freq="D")
     rows: list[dict[str, Any]] = []
@@ -414,7 +420,9 @@ def ingest_open_meteo(plan: BatchSourcePlan, engine: Engine) -> int:
             "timezone": "UTC",
         }
         try:
-            payload = request_json(f"{plan.details['base_url']}{plan.details['endpoint']}", params=params)
+            payload = request_json(
+                f"{plan.details['base_url']}{plan.details['endpoint']}", params=params
+            )
             raw_documents.append(
                 {
                     "city": geography["city"],
@@ -432,8 +440,12 @@ def ingest_open_meteo(plan: BatchSourcePlan, engine: Engine) -> int:
                     {
                         "weather_date": date_value,
                         "city": geography["city"],
-                        "avg_temperature_c": temperatures[index] if index < len(temperatures) else None,
-                        "precipitation_mm": precipitation[index] if index < len(precipitation) else None,
+                        "avg_temperature_c": temperatures[index]
+                        if index < len(temperatures)
+                        else None,
+                        "precipitation_mm": precipitation[index]
+                        if index < len(precipitation)
+                        else None,
                         "ingested_at": ingested_at,
                     }
                     for index, date_value in enumerate(dates)
@@ -463,7 +475,9 @@ def ingest_open_meteo(plan: BatchSourcePlan, engine: Engine) -> int:
         row_count=len(flattened_rows),
         metadata={"geographies": [geo["city"] for geo in geographies], "fallback": used_fallback},
     )
-    insert_many_documents(mongo_database_name(), plan.raw_collection or "open_meteo_weather_raw", raw_documents)
+    insert_many_documents(
+        mongo_database_name(), plan.raw_collection or "open_meteo_weather_raw", raw_documents
+    )
 
     dataframe = pd.DataFrame(
         flattened_rows,
@@ -566,7 +580,9 @@ def ingest_frankfurter(plan: BatchSourcePlan, engine: Engine) -> int:
             "fallback": used_fallback,
         },
     )
-    insert_many_documents(mongo_database_name(), plan.raw_collection or "frankfurter_fx_raw", raw_documents)
+    insert_many_documents(
+        mongo_database_name(), plan.raw_collection or "frankfurter_fx_raw", raw_documents
+    )
 
     dataframe = pd.DataFrame(
         flattened_rows,
@@ -603,7 +619,9 @@ def run(environment: str, source_name: str) -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Batch ingestion for omnichannel commerce sources.")
+    parser = argparse.ArgumentParser(
+        description="Batch ingestion for omnichannel commerce sources."
+    )
     parser.add_argument("--env", default="dev", help="Configuration environment to load.")
     parser.add_argument(
         "--source",

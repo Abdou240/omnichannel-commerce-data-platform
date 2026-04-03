@@ -1,2 +1,1 @@
 """NoSQL starter package."""
-

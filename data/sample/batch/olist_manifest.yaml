@@ -15,4 +15,3 @@ tables:
 todo:
   - "Download the real Olist CSV snapshots into a local or object-storage landing zone."
   - "Add watermarking and batch metadata once ingestion is implemented."
-

@@ -44,4 +44,3 @@ def load_settings(environment: str | None = None) -> dict[str, Any]:
     runtime["environment"] = env_name
     base["runtime"] = runtime
     return base
-

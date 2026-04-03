@@ -1,9 +1,9 @@
 # omnichannel-commerce-data-platform
 
-Ein praxisnahes Data-Engineering-Portfolio-Projekt für eine Omnichannel-Commerce-Plattform.
+Ein praxisnahes Portfolio-Projekt für Data Engineering rund um eine Omnichannel-Commerce-Plattform.
 
 Dieses Repository modelliert einen realistischen End-to-End-Stack für Batch-, Streaming-,
-Warehouse-, Quality- und Orchestrierungs-Workloads. Der Fokus liegt bewusst auf einer sauberen,
+Warehouse-, Qualitäts- und Orchestrierungs-Workloads. Der Fokus liegt bewusst auf einer sauberen,
 erweiterbaren Plattformstruktur, auf ehrlichen Starter-Implementierungen und auf einer
 repo-tauglichen Darstellung für Recruiter, Hiring Manager und technische Reviewer.
 
@@ -14,7 +14,7 @@ lokalem Entwicklungs-Setup und späterer Cloud-Zielarchitektur.
 ## Inhaltsverzeichnis
 
 - [Projektziel](#projektziel)
-- [Fachlicher Scope](#fachlicher-scope)
+- [Fachlicher Umfang](#fachlicher-umfang)
 - [Datenquellen](#datenquellen)
 - [Architektur auf einen Blick](#architektur-auf-einen-blick)
 - [Datenfluss im Detail](#datenfluss-im-detail)
@@ -48,7 +48,7 @@ Das Repository soll zeigen, dass nicht nur SQL oder Python beherrscht wird, sond
 Data-Engineering-Projekt als Plattform gedacht, strukturiert, dokumentiert und weiterentwickelt
 werden kann.
 
-## Fachlicher Scope
+## Fachlicher Umfang
 
 Im Mittelpunkt steht eine Omnichannel-Commerce-Domäne mit mehreren fachlichen Perspektiven:
 
@@ -91,7 +91,7 @@ geroutet und zusätzlich in der Raw-Schicht persistiert.
 
 ### DummyJSON
 
-Produkt-API als leichtgewichtiger API-Source für Enrichment und Dimensionserweiterung.
+Produkt-API als leichtgewichtige Quelle für Enrichment und Dimensionserweiterung.
 
 ### Open-Meteo
 
@@ -105,7 +105,7 @@ FX-Raten zur späteren Umrechnung von Beträgen und zur Vergleichbarkeit von Com
 
 Raw-Document-Store für JSON-Payloads und Replay-Artefakte.
 
-### PostgreSQL lokal und BigQuery als Zielbild
+### PostgreSQL lokal und BigQuery als Zielarchitektur
 
 - PostgreSQL dient lokal als Warehouse- und Raw-Execution-Ziel
 - BigQuery ist als Cloud-Warehouse-Ziel in dbt- und Terraform-Struktur vorbereitet
@@ -201,7 +201,7 @@ stabil, auch wenn nicht immer alle Quellen geladen wurden.
 
 ### 4. Datenqualität
 
-Die Qualitätslogik kombiniert:
+Die Datenqualitätslogik kombiniert:
 
 - deklarative Verträge unter `quality/contracts/`
 - SQL-Erwartungen unter `quality/expectations/`
@@ -406,12 +406,12 @@ make run-quality
 - Intermediate-Modelle für Order-Kontext und Sessions
 - Mart-Modelle für Orders, Sessions und Produkte
 
-### Quality
+### Datenqualität
 
-- deklarative Contracts
-- SQL-Expectations
+- deklarative Qualitätsverträge
+- SQL-Erwartungen
 - dbt-Tests
-- Python-Quality-Runner mit Report-Ausgabe
+- Python-Runner für Datenqualität mit Report-Ausgabe
 
 ### Engineering-Workflow
 
@@ -424,7 +424,7 @@ make run-quality
 
 ### Raw-Schicht
 
-Die Raw-Schicht bildet die operative Landefläche für normalisierte Tabellen:
+Die Rohdatenschicht bildet die operative Landefläche für normalisierte Tabellen:
 
 - `raw.olist_orders`
 - `raw.olist_order_items`
@@ -481,7 +481,7 @@ Beispiele für Checks:
 - FX-Raten müssen positiv sein
 - Mart-Order-IDs müssen eindeutig sein
 
-Der Quality-Runner schreibt den letzten Lauf nach:
+Der Qualitäts-Runner schreibt den letzten Lauf nach:
 
 - `storage/checkpoints/quality/last_run.json`
 
@@ -495,10 +495,10 @@ Der Flow [daily_platform_ingestion.yml](/Users/abderrahmenmansour/Desktop/datata
 1. Batch-Ingestion
 2. Retailrocket-Replay
 3. Warehouse-Layer-Planung
-4. Quality-Execution
+4. Datenqualitätslauf
 
 Der Flow ist absichtlich noch shell-basiert, damit die Einstiegshürde lokal niedrig bleibt. Für eine
-nächste Reifestufe wäre ein dediziertes Runtime-Image sinnvoll, in dem Python-Dependencies und dbt
+nächste Reifestufe wäre ein dediziertes Runtime-Image sinnvoll, in dem Python-Abhängigkeiten und dbt
 bereits enthalten sind.
 
 ## Spark-Pfad
@@ -517,7 +517,7 @@ spätere Skalierung.
 Das GCP-Fundament unter [infra/terraform/gcp](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/infra/terraform/gcp) enthält aktuell:
 
 - Google-Provider `5.6.0`
-- Service Account
+- Service-Konto
 - Raw- und Processed-GCS-Buckets
 - BigQuery-Datasets für `commerce_raw`, `commerce_staging`, `commerce_marts`
 - IAM-Zuweisungen als Starter-Fundament
@@ -571,7 +571,7 @@ Der aktuelle Stand wurde bereits lokal gegen folgende Schritte geprüft:
 - Replay zu einem dauerhaften Consumer-/Streaming-Job weiterentwickeln
 - inkrementelle dbt-Strategien ergänzen
 - Source Freshness und Exposures in dbt aufbauen
-- Quality-Checks in Orchestrierungs-Alerts integrieren
+- Datenqualitätsprüfungen in Orchestrierungs-Alerts integrieren
 - Streamlit- oder BI-Layer mit Kennzahlen und Session-Analysen ergänzen
 - BigQuery-Zielpfad mit echten GCP-Credentials und Remote State produktionsnäher machen
 

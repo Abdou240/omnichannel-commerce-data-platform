@@ -8,4 +8,3 @@ rules:
     expectation: visitor_id must be present
   - name: event_type_domain
     expectation: event_type must be one of view, addtocart, or transaction
-

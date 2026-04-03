@@ -47,7 +47,9 @@ def route_event_topic(event_type: str, event_topics: dict[str, str]) -> str:
     return event_topics.get(event_type.lower(), event_topics["default"])
 
 
-def normalize_retailrocket_event(raw_event: dict[str, Any], event_topics: dict[str, str]) -> dict[str, Any]:
+def normalize_retailrocket_event(
+    raw_event: dict[str, Any], event_topics: dict[str, str]
+) -> dict[str, Any]:
     event_type = str(raw_event["event_type"]).lower()
     return {
         "event_id": str(raw_event["event_id"]),
@@ -79,7 +81,10 @@ def optional_kafka_producer(bootstrap_servers: str | None):
             key_serializer=lambda key: key.encode("utf-8") if key else None,
         )
     except Exception:
-        LOGGER.warning("Unable to initialize Kafka producer; replay will continue without publish", exc_info=True)
+        LOGGER.warning(
+            "Unable to initialize Kafka producer; replay will continue without publish",
+            exc_info=True,
+        )
         return None
 
 
@@ -118,7 +123,9 @@ def persist_to_mongo(collection_name: str, raw_documents: list[dict[str, Any]]) 
     return insert_many_documents(mongo_database_name(), collection_name, raw_documents)
 
 
-def publish_to_kafka(plan: StreamingIngestionPlan, producer, normalized_rows: list[dict[str, Any]]) -> None:
+def publish_to_kafka(
+    plan: StreamingIngestionPlan, producer, normalized_rows: list[dict[str, Any]]
+) -> None:
     if producer is None:
         return
 
@@ -129,7 +136,9 @@ def publish_to_kafka(plan: StreamingIngestionPlan, producer, normalized_rows: li
 
         producer.flush()
     except Exception:
-        LOGGER.warning("Kafka publish failed; replay will continue with raw persistence only", exc_info=True)
+        LOGGER.warning(
+            "Kafka publish failed; replay will continue with raw persistence only", exc_info=True
+        )
 
 
 def write_replay_artifacts(
@@ -159,7 +168,9 @@ def write_replay_artifacts(
 def run_replay(plan: StreamingIngestionPlan, mode: str) -> dict[str, Any]:
     replay_source = Path(plan.replay_source)
     raw_events = read_jsonl(replay_source)
-    normalized_rows = [normalize_retailrocket_event(event, plan.event_topics) for event in raw_events]
+    normalized_rows = [
+        normalize_retailrocket_event(event, plan.event_topics) for event in raw_events
+    ]
     raw_documents = [
         {
             **event,
@@ -194,7 +205,9 @@ def run_replay(plan: StreamingIngestionPlan, mode: str) -> dict[str, Any]:
 
 def run(environment: str, mode: str) -> None:
     plan = build_plan(environment)
-    LOGGER.info("Starting Retailrocket streaming ingestion for environment=%s mode=%s", environment, mode)
+    LOGGER.info(
+        "Starting Retailrocket streaming ingestion for environment=%s mode=%s", environment, mode
+    )
     LOGGER.info(
         "Replay source=%s raw_topic=%s group=%s checkpoint=%s bootstrap=%s",
         plan.replay_source,

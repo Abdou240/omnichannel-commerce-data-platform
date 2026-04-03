@@ -9,4 +9,3 @@ create table if not exists raw.ingestion_audit (
     row_count bigint,
     primary key (source_name, batch_id)
 );
-

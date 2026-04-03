@@ -1,2 +1,1 @@
 """Batch ingestion starter modules."""
-

@@ -26,7 +26,9 @@ def optional_mongo_collection(database_name: str, collection_name: str):
     return client[database_name][collection_name]
 
 
-def insert_many_documents(database_name: str, collection_name: str, documents: list[dict[str, Any]]) -> int:
+def insert_many_documents(
+    database_name: str, collection_name: str, documents: list[dict[str, Any]]
+) -> int:
     if not documents:
         return 0
 
