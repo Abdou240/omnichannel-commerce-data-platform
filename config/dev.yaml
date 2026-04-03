@@ -6,7 +6,7 @@ sources:
     local_manifest: data/sample/batch/olist_manifest.yaml
     schedule: "0 3 * * *"
   retailrocket:
-    bootstrap_servers: localhost:19092
+    bootstrap_servers: localhost:9092
     starting_offsets: earliest
   dummyjson:
     page_size: 30
@@ -15,6 +15,12 @@ sources:
       - city: sao_paulo
         latitude: -23.5505
         longitude: -46.6333
+      - city: rio_de_janeiro
+        latitude: -22.9068
+        longitude: -43.1729
+      - city: belo_horizonte
+        latitude: -19.9167
+        longitude: -43.9345
   frankfurter:
     quote_currencies:
       - USD

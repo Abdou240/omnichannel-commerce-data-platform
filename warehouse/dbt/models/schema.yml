@@ -2,7 +2,7 @@ version: 2
 
 models:
   - name: stg_olist_orders
-    description: Staging placeholder for Olist order headers.
+    description: Normalized Olist order headers.
     columns:
       - name: order_id
         tests: [not_null, unique]
@@ -12,15 +12,33 @@ models:
         tests: [not_null]
 
   - name: stg_olist_order_items
-    description: Staging placeholder for Olist order items.
+    description: Normalized Olist order items.
     columns:
       - name: order_id
         tests: [not_null]
       - name: order_item_id
         tests: [not_null]
 
+  - name: stg_olist_customers
+    description: Olist customer dimension staging.
+    columns:
+      - name: customer_id
+        tests: [not_null, unique]
+
+  - name: stg_olist_products
+    description: Olist product staging.
+    columns:
+      - name: product_id
+        tests: [not_null, unique]
+
+  - name: stg_olist_order_payments
+    description: Olist payment staging.
+    columns:
+      - name: order_id
+        tests: [not_null]
+
   - name: stg_retailrocket_events
-    description: Staging placeholder for Retailrocket events.
+    description: Normalized Retailrocket clickstream events.
     columns:
       - name: event_id
         tests: [not_null, unique]
@@ -30,19 +48,21 @@ models:
         tests: [not_null]
 
   - name: stg_dummyjson_products
-    description: Staging placeholder for DummyJSON products.
+    description: DummyJSON API products normalized for product dimension usage.
     columns:
       - name: product_id
         tests: [not_null, unique]
 
   - name: stg_open_meteo_weather
-    description: Staging placeholder for Open-Meteo daily weather data.
+    description: Daily weather enrichments.
     columns:
       - name: weather_date
         tests: [not_null]
+      - name: city
+        tests: [not_null]
 
   - name: stg_frankfurter_fx_rates
-    description: Staging placeholder for Frankfurter FX rates.
+    description: Daily FX rates for currency normalization.
     columns:
       - name: rate_date
         tests: [not_null]
@@ -50,26 +70,35 @@ models:
         tests: [not_null]
 
   - name: int_orders_with_context
-    description: Intermediate placeholder joining orders, products, FX, and weather.
-
-  - name: int_retailrocket_sessions
-    description: Intermediate placeholder for replayed clickstream sessionization.
-
-  - name: fct_commerce_orders
-    description: Commerce order mart placeholder.
+    description: Order-grain intermediate model with commerce, customer, weather, and FX context.
     columns:
       - name: order_id
         tests: [not_null, unique]
 
+  - name: int_retailrocket_sessions
+    description: Sessionized Retailrocket clickstream.
+    columns:
+      - name: session_key
+        tests: [not_null, unique]
+
+  - name: fct_commerce_orders
+    description: Order-grain commerce fact table.
+    columns:
+      - name: order_id
+        tests: [not_null, unique]
+      - name: customer_id
+        tests: [not_null]
+
   - name: fct_retailrocket_sessions
-    description: Retailrocket session mart placeholder.
+    description: Session-grain Retailrocket fact table.
     columns:
       - name: session_key
         tests: [not_null, unique]
 
   - name: dim_products
-    description: Product dimension placeholder combining DummyJSON and Olist product concepts.
+    description: Product dimension combining Olist catalog attributes and DummyJSON enrichment products.
     columns:
-      - name: product_id
+      - name: product_key
         tests: [not_null, unique]
-
+      - name: product_id
+        tests: [not_null]

@@ -1,16 +1,28 @@
 # Quality Foundations
 
-This directory contains starter quality artifacts for the Omnichannel Commerce platform.
+This directory contains the starter data quality layer for the Omnichannel Commerce platform.
 
 Current scope:
 
-- source-aware contracts for Olist, Retailrocket, product API data, and enrichments
-- SQL expectation placeholders for raw and mart checks
-- Python catalog discovery in `src/omnichannel_platform/quality/rules_catalog.py`
+- YAML contracts for raw and mart expectations
+- SQL assertions for raw and mart validation
+- dbt tests for staging and mart models
+- Python execution runner in `src/omnichannel_platform/quality/rules_catalog.py`
+
+Local usage:
+
+```bash
+make run-quality
+```
+
+Behavior:
+
+- executes SQL expectations against PostgreSQL when available
+- skips SQL execution cleanly when PostgreSQL is not reachable
+- writes the latest quality report to `storage/checkpoints/quality/last_run.json`
 
 TODO:
 
-- connect these rules to dbt source tests and orchestration
 - add freshness, SLA, and reconciliation checks
-- promote contracts into executable validation jobs
-
+- push failing expectations into orchestration alerts
+- connect declarative contracts to broader metadata tooling

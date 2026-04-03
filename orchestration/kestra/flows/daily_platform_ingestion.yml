@@ -1,6 +1,14 @@
 id: omnichannel_commerce_daily
 namespace: omnichannel.platform.dev
-description: Starter Kestra flow for Olist batch ingestion, Retailrocket replay, and warehouse planning.
+description: Daily local dev flow for Olist batch ingestion, Retailrocket replay, dbt layers, and quality checks.
+
+inputs:
+  - id: environment
+    type: STRING
+    defaults: dev
+  - id: streaming_mode
+    type: STRING
+    defaults: replay
 
 triggers:
   - id: daily_schedule
@@ -10,34 +18,41 @@ triggers:
 tasks:
   - id: start_log
     type: io.kestra.plugin.core.log.Log
-    message: "Starting scaffold flow {{ flow.id }} in {{ flow.namespace }}"
+    message: "Starting {{ flow.id }} for env={{ inputs.environment }}"
 
-  - id: run_batch_orders
+  - id: batch_ingestion
     type: io.kestra.plugin.scripts.shell.Commands
     warningOnStdErr: false
     commands:
-      - python -m omnichannel_platform.batch.commerce_batch_ingestion --env dev
+      - python -m omnichannel_platform.batch.commerce_batch_ingestion --env {{ inputs.environment }}
 
-  - id: replay_retailrocket_events
+  - id: retailrocket_replay
     type: io.kestra.plugin.scripts.shell.Commands
     warningOnStdErr: false
     commands:
-      - python -m omnichannel_platform.streaming.clickstream_consumer --env dev --mode replay
+      - python -m omnichannel_platform.streaming.clickstream_consumer --env {{ inputs.environment }} --mode {{ inputs.streaming_mode }}
 
   - id: warehouse_layers
     type: io.kestra.plugin.scripts.shell.Commands
     warningOnStdErr: false
     commands:
-      - python -m omnichannel_platform.warehouse.layer_catalog --env dev
+      - python -m omnichannel_platform.warehouse.layer_catalog --env {{ inputs.environment }}
 
-  - id: quality_placeholder
+  - id: dbt_build_note
     type: io.kestra.plugin.core.log.Log
-    message: "TODO: execute dbt build and source-aware quality checks once warehouse loading exists."
+    message: "TODO: run dbt build inside a Python/dbt-capable image or worker once runtime packaging is added."
+
+  - id: run_quality
+    type: io.kestra.plugin.scripts.shell.Commands
+    warningOnStdErr: false
+    commands:
+      - python -m omnichannel_platform.quality.rules_catalog --non-strict
 
   - id: finish_log
     type: io.kestra.plugin.core.log.Log
-    message: "Scaffold flow finished"
+    message: "Flow finished for env={{ inputs.environment }}"
 
 # TODO:
-# - parameterize namespace and environment variables before promoting beyond local development
-# - wire secrets for Olist, MongoDB, Kafka, and BigQuery via Kestra secret management
+# - run these tasks inside a dedicated image that includes the project extras
+# - parameterize namespace, secrets, and dbt target before promoting beyond local development
+# - replace the dbt note with a real `dbt build` task once the runtime packaging is in place

@@ -1,13 +1,14 @@
 # Kafka Starter Assets
 
-This directory contains small platform-level Kafka assets for local development and future managed deployments.
+This directory contains the topic and bootstrap assets for Retailrocket replay.
 
 Current scope:
 
-- topic catalog for Retailrocket clickstream replay
-- topic bootstrap script for local Redpanda/Kafka
+- topic catalog for raw, typed, and DLQ Retailrocket events
+- local topic creation script aligned to the Redpanda Compose stack
+- routing-compatible topic names shared by config and Python replay code
 
-Current topic pattern:
+Topic pattern:
 
 - `retailrocket.events.raw`
 - `retailrocket.events.view`
@@ -15,8 +16,14 @@ Current topic pattern:
 - `retailrocket.events.transaction`
 - `retailrocket.events.dlq`
 
+Local usage:
+
+```bash
+make kafka-topics
+```
+
 TODO:
 
 - add ACLs and auth configuration for managed Kafka
 - add schema registry subjects and compatibility policy
-- add producer and consumer smoke tests once message contracts exist
+- add producer and consumer smoke tests for managed environments

@@ -46,6 +46,7 @@ sources:
       - transaction
     consumer_group: retailrocket-replay-dev
     checkpoint_path: storage/checkpoints/retailrocket/
+    session_gap_minutes: 30
   dummyjson:
     provider: dummyjson
     source_kind: product_api_json
@@ -53,6 +54,7 @@ sources:
     endpoint: /products
     landing_path: storage/bronze/dummyjson/products/
     raw_collection: dummyjson_products_raw
+    page_size: 30
   open_meteo:
     provider: open-meteo
     source_kind: weather_enrichment_api
@@ -60,6 +62,8 @@ sources:
     endpoint: /v1/archive
     landing_path: storage/bronze/open_meteo/weather/
     raw_collection: open_meteo_weather_raw
+    start_date: 2018-01-01
+    end_date: 2018-12-31
     daily_metrics:
       - temperature_2m_mean
       - precipitation_sum
@@ -70,6 +74,8 @@ sources:
     endpoint: /v2/rates
     landing_path: storage/bronze/frankfurter/fx/
     raw_collection: frankfurter_fx_raw
+    start_date: 2018-01-01
+    end_date: 2018-12-31
     base_currency: EUR
     quote_currencies:
       - USD

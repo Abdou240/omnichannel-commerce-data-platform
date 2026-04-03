@@ -1,174 +1,588 @@
 # omnichannel-commerce-data-platform
 
-Production-style Data Engineering portfolio scaffold for an Omnichannel Commerce Data Platform.
+Ein praxisnahes Data-Engineering-Portfolio-Projekt für eine Omnichannel-Commerce-Plattform.
 
-This repository is still intentionally scaffold-first, but it now includes platform foundations
-aligned to a concrete domain stack:
-Olist batch commerce data, Retailrocket clickstream replay, DummyJSON product API data,
-Open-Meteo weather enrichment, Frankfurter FX rates, MongoDB raw documents,
-PostgreSQL for local warehouse work, and BigQuery as the cloud warehouse target.
+Dieses Repository modelliert einen realistischen End-to-End-Stack für Batch-, Streaming-,
+Warehouse-, Quality- und Orchestrierungs-Workloads. Der Fokus liegt bewusst auf einer sauberen,
+erweiterbaren Plattformstruktur, auf ehrlichen Starter-Implementierungen und auf einer
+repo-tauglichen Darstellung für Recruiter, Hiring Manager und technische Reviewer.
 
-## Project Goals
+Das Projekt ist kein künstlich „fertig simulierter“ Showcase. Stattdessen gibt es funktionierende
+Starter-Pipelines, echte Ausführungspfade, saubere TODO-Grenzen und eine klare Trennung zwischen
+lokalem Entwicklungs-Setup und späterer Cloud-Zielarchitektur.
 
-- Keep the repository easy to navigate for recruiters and collaborators
-- Separate batch, streaming, warehouse, quality, NoSQL, and orchestration concerns
-- Start with realistic local tooling and environment configuration
-- Leave honest TODO markers instead of fake implementations
+## Inhaltsverzeichnis
 
-## Source Domains
+- [Projektziel](#projektziel)
+- [Fachlicher Scope](#fachlicher-scope)
+- [Datenquellen](#datenquellen)
+- [Architektur auf einen Blick](#architektur-auf-einen-blick)
+- [Datenfluss im Detail](#datenfluss-im-detail)
+- [Technologiestack](#technologiestack)
+- [Repository-Struktur](#repository-struktur)
+- [Lokales Setup](#lokales-setup)
+- [Zentrale Make-Targets](#zentrale-make-targets)
+- [Was aktuell implementiert ist](#was-aktuell-implementiert-ist)
+- [Warehouse- und dbt-Modellierung](#warehouse--und-dbt-modellierung)
+- [Datenqualität](#datenqualität)
+- [Orchestrierung mit Kestra](#orchestrierung-mit-kestra)
+- [Spark-Pfad](#spark-pfad)
+- [GCP- und Terraform-Fundament](#gcp--und-terraform-fundament)
+- [Validierung und Entwicklung](#validierung-und-entwicklung)
+- [Aktuelle Grenzen](#aktuelle-grenzen)
+- [Nächste sinnvolle Ausbaustufen](#nächste-sinnvolle-ausbaustufen)
 
-- Olist: batch relational commerce data for orders, order items, customers, products, and payments
-- Retailrocket: clickstream/event replay data for `view`, `addtocart`, and `transaction` behavior
-- DummyJSON: product API JSON for starter catalog enrichment
-- Open-Meteo: weather enrichment for daily contextual analytics
-- Frankfurter API: FX rates for currency normalization
-- MongoDB: raw JSON and event document landing store
-- PostgreSQL: local raw/staging/marts schemas for development
-- BigQuery: cloud warehouse target for deployed analytics
+## Projektziel
 
-## Planned Architecture
+Die Plattform soll ein realistisches Omnichannel-Commerce-Szenario abbilden:
 
-- Batch ingestion: Olist snapshots plus API-based enrichment pulls
-- Streaming replay: Retailrocket events replayed into Kafka/Redpanda topics
-- Raw layer: MongoDB documents and PostgreSQL raw tables
-- Transform layer: dbt models from raw to staging to marts
-- Warehouse targets: PostgreSQL locally and BigQuery in cloud environments
-- Orchestration: Kestra-managed workflows
-- Data quality: source contracts, SQL expectations, and dbt tests
+- relationale Commerce-Daten im Batch-Stil ingestieren
+- Clickstream-Ereignisse über Kafka-kompatible Topics replayen
+- externe Referenz- und Enrichment-Daten einbinden
+- Rohdaten in ein lokales Warehouse überführen
+- dbt-Modelle von `raw -> staging -> intermediate -> marts` aufbauen
+- Datenqualitätsregeln dokumentieren und ausführbar machen
+- eine klare Cloud-Zielarchitektur für BigQuery und GCP vorbereiten
 
-## Repository Structure
+Das Repository soll zeigen, dass nicht nur SQL oder Python beherrscht wird, sondern dass ein
+Data-Engineering-Projekt als Plattform gedacht, strukturiert, dokumentiert und weiterentwickelt
+werden kann.
+
+## Fachlicher Scope
+
+Im Mittelpunkt steht eine Omnichannel-Commerce-Domäne mit mehreren fachlichen Perspektiven:
+
+- Bestellungen und Bestellpositionen
+- Produkte und Produktattribute
+- Kunden- und Standortkontext
+- Klick- und Session-Verhalten
+- Wetterkontext für Nachfrage- oder Aktivitätsmuster
+- Währungsumrechnung für vergleichbare Kennzahlen
+
+Die fachliche Idee ist bewusst breit genug, um Batch, Streaming, Referenzdaten, Modellierung,
+Qualität und Cloud-Bausteine sinnvoll in einem gemeinsamen Projekt zu verbinden.
+
+## Datenquellen
+
+### Olist
+
+Batch-orientierte relationale Commerce-Daten auf CSV-Basis:
+
+- Orders
+- Order Items
+- Customers
+- Products
+- Payments
+
+Im lokalen Setup werden deterministische Seed-Dateien erzeugt, wenn keine echten CSV-Snapshots
+bereitgestellt wurden. Dadurch bleibt der Batch-Pfad lauffähig, ohne einen „Fake-Production“-Eindruck
+zu erzeugen.
+
+### Retailrocket
+
+Clickstream-/Event-Daten für Replay-Szenarien:
+
+- `view`
+- `addtocart`
+- `transaction`
+
+Die Events werden im Starter-Setup aus einer JSONL-Datei gelesen, normalisiert, auf Kafka-Topics
+geroutet und zusätzlich in der Raw-Schicht persistiert.
+
+### DummyJSON
+
+Produkt-API als leichtgewichtiger API-Source für Enrichment und Dimensionserweiterung.
+
+### Open-Meteo
+
+Wetter-Enrichment auf Tagesebene für ausgewählte brasilianische Städte.
+
+### Frankfurter API
+
+FX-Raten zur späteren Umrechnung von Beträgen und zur Vergleichbarkeit von Commerce-Metriken.
+
+### MongoDB
+
+Raw-Document-Store für JSON-Payloads und Replay-Artefakte.
+
+### PostgreSQL lokal und BigQuery als Zielbild
+
+- PostgreSQL dient lokal als Warehouse- und Raw-Execution-Ziel
+- BigQuery ist als Cloud-Warehouse-Ziel in dbt- und Terraform-Struktur vorbereitet
+
+## Architektur auf einen Blick
+
+```text
+                          +----------------------+
+                          |     Olist CSVs       |
+                          |  (oder lokale Seeds) |
+                          +----------+-----------+
+                                     |
+                                     v
+                         +-------------------------+
+                         |   Batch Ingestion       |
+                         |   Python + PostgreSQL   |
+                         +------------+------------+
+                                      |
+             +------------------------+------------------------+
+             |                        |                        |
+             v                        v                        v
+   +------------------+    +------------------+    +------------------+
+   | DummyJSON API    |    | Open-Meteo API   |    | Frankfurter API  |
+   +------------------+    +------------------+    +------------------+
+             \                    |                         /
+              \                   |                        /
+               +------------------+-----------------------+
+                                  |
+                                  v
+                    storage/bronze + MongoDB raw documents
+                                  |
+                                  v
+                           PostgreSQL raw layer
+                                  |
+                                  v
+                        dbt staging / intermediate
+                                  |
+                                  v
+                               dbt marts
+                                  |
+                                  v
+                       BigQuery als Zielarchitektur
+
+
+Retailrocket JSONL -> Replay -> Kafka/Redpanda Topics -> PostgreSQL raw + MongoDB raw
+```
+
+Eine ergänzende Architekturübersicht liegt in [docs/architecture.md](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/docs/architecture.md).
+
+## Datenfluss im Detail
+
+### 1. Batch-Ingestion
+
+Die Batch-Pipeline in [commerce_batch_ingestion.py](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/src/omnichannel_platform/batch/commerce_batch_ingestion.py) übernimmt:
+
+- Bereitstellung oder Erzeugung lokaler Olist-Dateien
+- Laden der Olist-Tabellen in `raw.*`
+- API-Abrufe für DummyJSON, Open-Meteo und Frankfurter
+- Schreiben von Bronze-Artefakten unter `storage/bronze/*/_runs/<batch_id>/`
+- optionale Raw-Dokumentablage in MongoDB
+- Audit-Einträge in `raw.ingestion_audit`
+
+Die Implementierung ist bewusst minimal, aber nicht nur symbolisch. Sie besitzt echte Ausführungspfade,
+arbeitet mit Config-Dateien, erzeugt Artefakte und trennt zwischen strukturierten Tabellendaten und
+ungeschnittenen Raw-Dokumenten.
+
+### 2. Streaming-Replay
+
+Die Streaming-Pipeline in [clickstream_consumer.py](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/src/omnichannel_platform/streaming/clickstream_consumer.py) übernimmt:
+
+- Lesen von Retailrocket-Events aus `data/sample/streaming/retailrocket_events.jsonl`
+- Normalisierung der Event-Struktur
+- Routing auf fachliche Topics
+- Publizieren auf Kafka/Redpanda, sofern ein Broker erreichbar ist
+- Persistenz in `raw.retailrocket_events`
+- optionales Ablegen der Replay-Dokumente in MongoDB
+- Schreiben eines Replay-Checkpoints unter `storage/checkpoints/retailrocket/`
+
+Damit ist ein realistischer Starter für Event-Replay, Routing und Raw-Landing vorhanden, ohne bereits
+eine vollständige produktive Streaming-Infrastruktur vorzutäuschen.
+
+### 3. Transformation im Warehouse
+
+Die dbt-Modelle bilden aktuell drei Schichten:
+
+- `staging`: Normalisierung der Rohdaten
+- `intermediate`: Zusammenführung, Kontextanreicherung, Sessionisierung
+- `marts`: fachlich lesbare Fakt- und Dimensionsmodelle
+
+Besonders wichtig: Die Modelle sind source-aware. Wenn lokale Raw-Tabellen noch nicht vorhanden sind,
+kompilieren sie trotzdem sicher mit leeren Fallback-Relationen. So bleiben CI und lokales `dbt build`
+stabil, auch wenn nicht immer alle Quellen geladen wurden.
+
+### 4. Datenqualität
+
+Die Qualitätslogik kombiniert:
+
+- deklarative Verträge unter `quality/contracts/`
+- SQL-Erwartungen unter `quality/expectations/`
+- dbt-Tests auf Modell- und Spaltenebene
+- einen Python-Runner in [rules_catalog.py](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/src/omnichannel_platform/quality/rules_catalog.py)
+
+Das Ziel ist eine klare Trennung zwischen:
+
+- dokumentierten Qualitätsanforderungen
+- technisch ausführbaren Checks
+- Warehouse-naher Validierung
+
+## Technologiestack
+
+### Datenverarbeitung
+
+- Python 3.11+
+- pandas
+- requests
+- SQLAlchemy
+- psycopg
+
+### Streaming
+
+- Redpanda als Kafka-kompatibler lokaler Broker
+- kafka-python-ng für Producer/Replay-Grundlagen
+
+### Speicher und Warehouse
+
+- PostgreSQL lokal
+- MongoDB für Raw-JSON/Event-Dokumente
+- BigQuery als Zielarchitektur
+- MinIO als lokaler Object-Storage-Baustein
+
+### Transformation und Qualität
+
+- dbt
+- pytest
+- ruff
+- pre-commit
+
+### Orchestrierung und Infrastruktur
+
+- Kestra
+- Terraform für GCP
+- Docker Compose für den lokalen Plattform-Stack
+
+### Verteilte Verarbeitung
+
+- Spark für den Sessionisierungs-Pfad
+
+## Repository-Struktur
 
 ```text
 .
-├── .github/workflows/              # Lint, pytest, and dbt CI workflows
-├── .pre-commit-config.yaml         # Local file hygiene and lint hooks
-├── config/                         # Runtime and environment configuration
-├── data/
-│   ├── contracts/                  # Source and schema contracts
-│   └── sample/
-│       ├── batch/                  # Small local batch samples
-│       └── streaming/              # Small local event samples
-├── docs/
-│   ├── adr/                        # Architecture decision records
-│   ├── diagrams/                   # Architecture and lineage diagrams
-│   └── runbooks/                   # Operational notes and run procedures
-├── infra/
-│   ├── scripts/                    # Setup/bootstrap scripts
-│   └── terraform/                  # Future infrastructure-as-code
-├── nosql/
-│   ├── mongodb/                    # MongoDB schemas, indexes, init assets
-│   └── redis/                      # Optional cache-serving assets
-├── orchestration/
-│   ├── kestra/                     # Kestra flows and namespace assets
-│   └── jobs/                       # Shared orchestration helpers
-├── kafka/                          # Topic definitions and bootstrap helpers
-├── quality/
-│   ├── contracts/                  # Data quality contracts
-│   ├── expectations/               # Quality rules and tests
-│   └── monitors/                   # Freshness/SLA monitoring definitions
-├── spark/
-│   ├── conf/                       # Spark local/default configs
-│   └── jobs/                       # Spark starter jobs
-├── sql/
-│   ├── postgres/
-│   │   ├── init/                   # Source-side setup SQL
-│   │   └── queries/                # Source-side analytical or validation SQL
-│   └── warehouse/
-│       ├── staging/                # Staging SQL patterns
-│       ├── intermediate/           # Intermediate transformations
-│       └── marts/                  # Analytics-facing models
-├── src/
-│   └── omnichannel_platform/
-│       ├── batch/                  # Batch ingestion starter modules
-│       ├── streaming/              # Streaming ingestion starter modules
-│       ├── warehouse/              # Warehouse loaders and helpers
-│       ├── quality/                # Quality execution layer
-│       ├── nosql/                  # Serving-layer sync jobs
-│       ├── orchestration/          # Shared orchestration utilities
-│       └── common/                 # Shared config, logging, utilities
-├── storage/
-│   ├── bronze/                     # Raw landed datasets
-│   ├── silver/                     # Cleaned datasets
-│   ├── gold/                       # Curated analytics outputs
-│   └── checkpoints/                # State, offsets, and watermarks
-├── tests/
-│   ├── fixtures/                   # Small local fixture data for starter tests
-│   ├── unit/                       # Unit tests
-│   └── integration/                # Integration tests
-└── warehouse/
-    ├── dbt/
-    │   ├── models/
-    │   │   ├── staging/            # dbt staging models
-    │   │   ├── intermediate/       # dbt intermediate models
-    │   │   └── marts/              # dbt mart models
-    │   ├── tests/                  # dbt singular test scaffolding
-    │   └── profiles.ci.yml         # CI-safe dbt profile
-    └── seeds/                      # Small reference seed data
+├── config/                              # Basis-, Dev- und Prod-Konfiguration
+├── data/sample/                         # Kleine lokale Beispiel- und Replay-Daten
+├── docs/                                # Architektur, ADRs, Runbooks
+├── infra/terraform/gcp/                 # GCP-Grundgerüst für Buckets, Datasets, IAM
+├── kafka/                               # Topic-Katalog und Topic-Bootstrap
+├── orchestration/kestra/                # Kestra-Flows und Namespace-Artefakte
+├── quality/                             # Verträge, SQL-Checks, spätere Monitore
+├── spark/                               # Spark-Konfiguration und Jobs
+├── sql/postgres/init/                   # Lokale Warehouse- und Raw-Initialisierung
+├── src/omnichannel_platform/
+│   ├── batch/                           # Batch-Ingestion
+│   ├── common/                          # Logging, Config, Clients, I/O
+│   ├── quality/                         # Quality-Runner
+│   ├── streaming/                       # Replay / Streaming
+│   └── warehouse/                       # Warehouse-Layer-Katalog
+├── tests/                               # Unit- und Integrationstests
+└── warehouse/dbt/                       # dbt-Projekt mit Macros, Modellen und Tests
 ```
 
-## What Exists Now
+Wichtige Dateien:
 
-- Repository structure
-- Environment and platform config files for Olist, Retailrocket, DummyJSON, Open-Meteo, and Frankfurter
-- Minimal batch and streaming ingestion entry points
-- Kestra flow skeletons
-- dbt project skeleton with raw-to-staging-to-marts placeholders
-- dbt test scaffolding
-- Kafka topic scaffolding for Retailrocket replay
-- Quality contracts and SQL rule placeholders
-- GCP Terraform foundations
-- Kafka and Spark starter files
-- Pytest fixtures and starter tests
-- GitHub Actions workflows for lint, tests, and dbt checks
-- Pre-commit hooks for local workflow hygiene
-- Local development Make targets and Docker Compose services
+- [docker-compose.yml](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/docker-compose.yml)
+- [Makefile](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/Makefile)
+- [config/base.yaml](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/config/base.yaml)
+- [config/dev.yaml](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/config/dev.yaml)
+- [warehouse/dbt/dbt_project.yml](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/warehouse/dbt/dbt_project.yml)
+- [orchestration/kestra/flows/daily_platform_ingestion.yml](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/orchestration/kestra/flows/daily_platform_ingestion.yml)
 
-## What Is Deliberately Not Implemented Yet
+## Lokales Setup
 
-- Full source connectors and secret wiring
-- Stateful extraction, CDC, watermarking, and retry logic
-- Real warehouse transformations and semantic models
-- Production-quality replay guarantees and schema enforcement
-- Executable quality orchestration
-- Serving-layer sync jobs
-- Production cloud credentials and deployment automation
-
-## Quickstart
+### 1. Python-Umgebung
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev]"
-pre-commit install
+make install-local
+```
+
+`make install-local` installiert die lokalen Extras für:
+
+- Entwicklung
+- Batch
+- Streaming
+- Warehouse
+- MongoDB/NoSQL
+- Quality
+
+### 2. Umgebungsvariablen
+
+Die Vorlage liegt in [.env.example](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/.env.example).
+
+Typische lokale Variablen:
+
+- PostgreSQL-Verbindung
+- Kafka/Redpanda-Bootstrap-Server
+- MongoDB-URI
+- BigQuery-/GCP-Platzhalter
+- Kestra- und Spark-Parameter
+
+TODO:
+
+- produktive Secrets niemals direkt im Repo hinterlegen
+- für Cloud-Läufe Secret Manager, CI-Secrets oder Orchestrator-Secrets nutzen
+
+### 3. Plattform-Stack starten
+
+```bash
+docker compose up -d
+```
+
+Der Compose-Stack enthält aktuell:
+
+- PostgreSQL 18
+- pgAdmin
+- Redpanda v25.3.9
+- Redpanda Console
+- MongoDB 7
+- MinIO
+- Kestra v1.1
+
+### 4. Kafka-Topics anlegen
+
+```bash
+make kafka-topics
+```
+
+Standardtopics:
+
+- `retailrocket.events.raw`
+- `retailrocket.events.view`
+- `retailrocket.events.addtocart`
+- `retailrocket.events.transaction`
+- `retailrocket.events.dlq`
+
+### 5. Starter-Workflows ausführen
+
+```bash
 make run-batch
 make run-streaming
 make run-warehouse
 make run-quality
 ```
 
-Optional extras:
+## Zentrale Make-Targets
+
+| Target | Zweck |
+|---|---|
+| `make install-local` | lokale Entwicklungs- und Laufzeitabhängigkeiten installieren |
+| `make up` | Docker-Compose-Stack starten |
+| `make down` | Docker-Compose-Stack stoppen |
+| `make run-batch` | Batch-Ingestion für Olist und API-Enrichments ausführen |
+| `make run-streaming` | Retailrocket-Replay ausführen |
+| `make run-warehouse` | Warehouse-Layer planen und `dbt build` gegen das CI-Profil ausführen |
+| `make run-quality` | SQL-basierte Quality-Checks starten |
+| `make kafka-topics` | Kafka-/Redpanda-Topics anlegen |
+| `make spark-sessionize` | Spark-Sessionisierung für Retailrocket-Beispieldaten ausführen |
+| `make test` | pytest-Suite ausführen |
+| `make lint` | Ruff-Linting ausführen |
+
+## Was aktuell implementiert ist
+
+### Batch
+
+- Olist-Snapshot-Generierung für lokale Tests
+- Laden von Orders, Items, Customers, Products, Payments
+- DummyJSON-Produktabruf mit lokalem Fallback
+- Open-Meteo-Wetterabruf für konfigurierte Städte
+- Frankfurter-FX-Abruf für konfigurierten Zeitraum
+- Bronze-Artefakte und Run-Manifeste
+- Postgres-Loads in `raw.*`
+- optionale Mongo-Persistenz
+
+### Streaming
+
+- Replay aus lokaler JSONL-Datei
+- Event-Normalisierung
+- Topic-Routing
+- Kafka-Publish, wenn Broker verfügbar
+- Persistenz nach PostgreSQL
+- Replay-Artefakte und Checkpoint-Dateien
+
+### Warehouse
+
+- Raw-Tabellen-Initialisierung in PostgreSQL
+- dbt-Macro für relation-aware Fallbacks
+- Staging-Modelle für alle aktuellen Quellen
+- Intermediate-Modelle für Order-Kontext und Sessions
+- Mart-Modelle für Orders, Sessions und Produkte
+
+### Quality
+
+- deklarative Contracts
+- SQL-Expectations
+- dbt-Tests
+- Python-Quality-Runner mit Report-Ausgabe
+
+### Engineering-Workflow
+
+- pytest-Startertests
+- GitHub-Actions-Workflows für Lint, Tests und dbt
+- pre-commit-Konfiguration
+- klare modulare Repository-Struktur
+
+## Warehouse- und dbt-Modellierung
+
+### Raw-Schicht
+
+Die Raw-Schicht bildet die operative Landefläche für normalisierte Tabellen:
+
+- `raw.olist_orders`
+- `raw.olist_order_items`
+- `raw.olist_customers`
+- `raw.olist_products`
+- `raw.olist_order_payments`
+- `raw.retailrocket_events`
+- `raw.dummyjson_products`
+- `raw.open_meteo_weather`
+- `raw.frankfurter_fx_rates`
+
+### Staging-Schicht
+
+Die Staging-Modelle harmonisieren Datentypen, Benennungen und Basisnormalisierung.
+
+Beispiele:
+
+- [stg_olist_orders.sql](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/warehouse/dbt/models/staging/stg_olist_orders.sql)
+- [stg_retailrocket_events.sql](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/warehouse/dbt/models/staging/stg_retailrocket_events.sql)
+- [stg_dummyjson_products.sql](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/warehouse/dbt/models/staging/stg_dummyjson_products.sql)
+
+### Intermediate-Schicht
+
+Die Intermediate-Modelle bilden technische und fachliche Voraggregation:
+
+- [int_orders_with_context.sql](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/warehouse/dbt/models/intermediate/int_orders_with_context.sql)
+  verbindet Orders mit Kunden, Artikeln, Payments, Wetter und FX
+- [int_retailrocket_sessions.sql](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/warehouse/dbt/models/intermediate/int_retailrocket_sessions.sql)
+  sessionisiert Clickstream-Ereignisse mit einer Inaktivitätslücke von 30 Minuten
+
+### Mart-Schicht
+
+Aktuelle Mart-Modelle:
+
+- [fct_commerce_orders.sql](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/warehouse/dbt/models/marts/fct_commerce_orders.sql)
+- [fct_retailrocket_sessions.sql](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/warehouse/dbt/models/marts/fct_retailrocket_sessions.sql)
+- [dim_products.sql](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/warehouse/dbt/models/marts/dim_products.sql)
+
+Diese Modelle sind bewusst Starter und keine „fake business perfected marts“. Sie zeigen die
+Richtung, nicht den endgültigen Fachschnitt.
+
+## Datenqualität
+
+Qualitätsartefakte liegen in:
+
+- [quality/contracts](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/quality/contracts)
+- [quality/expectations](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/quality/expectations)
+- [warehouse/dbt/tests](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/warehouse/dbt/tests)
+
+Beispiele für Checks:
+
+- `order_id` darf nicht `null` sein
+- Retailrocket-Eventtypen müssen in einer bekannten Domain liegen
+- FX-Raten müssen positiv sein
+- Mart-Order-IDs müssen eindeutig sein
+
+Der Quality-Runner schreibt den letzten Lauf nach:
+
+- `storage/checkpoints/quality/last_run.json`
+
+Wenn PostgreSQL lokal nicht erreichbar ist, werden SQL-Checks sauber übersprungen statt das Repo
+unnötig „rot“ erscheinen zu lassen.
+
+## Orchestrierung mit Kestra
+
+Der Flow [daily_platform_ingestion.yml](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/orchestration/kestra/flows/daily_platform_ingestion.yml) bildet den aktuellen lokalen Ablauf ab:
+
+1. Batch-Ingestion
+2. Retailrocket-Replay
+3. Warehouse-Layer-Planung
+4. Quality-Execution
+
+Der Flow ist absichtlich noch shell-basiert, damit die Einstiegshürde lokal niedrig bleibt. Für eine
+nächste Reifestufe wäre ein dediziertes Runtime-Image sinnvoll, in dem Python-Dependencies und dbt
+bereits enthalten sind.
+
+## Spark-Pfad
+
+Unter [spark/jobs/clickstream_sessionization.py](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/spark/jobs/clickstream_sessionization.py) gibt es einen echten Starter für Sessionisierung:
+
+- liest die Retailrocket-Beispieldatei
+- bildet Sessions auf Basis eines 30-Minuten-Gaps
+- schreibt Session-Summaries als Parquet nach `storage/gold/retailrocket_sessions`
+
+Das ist bewusst noch kein produktiver Structured-Streaming-Job, aber ein sauberer Einstiegspunkt für
+spätere Skalierung.
+
+## GCP- und Terraform-Fundament
+
+Das GCP-Fundament unter [infra/terraform/gcp](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/infra/terraform/gcp) enthält aktuell:
+
+- Google-Provider `5.6.0`
+- Service Account
+- Raw- und Processed-GCS-Buckets
+- BigQuery-Datasets für `commerce_raw`, `commerce_staging`, `commerce_marts`
+- IAM-Zuweisungen als Starter-Fundament
+
+Bewusst noch offen:
+
+- Remote State
+- Aktivierung benötigter GCP-APIs
+- Secret- und Credential-Management
+- CI/CD-Deploymentpfade
+
+## Validierung und Entwicklung
+
+### Lokaler Prüfpfad
 
 ```bash
-pip install -e ".[warehouse,spark,batch,streaming]"
-docker compose up -d
+ruff check .
+pytest
+make run-warehouse
+make run-quality
 ```
 
-## Layer Flow
+### Bereits erfolgreich geprüft
 
-1. Batch sources land Olist tables and API payloads into `storage/bronze/` and MongoDB raw collections.
-2. Retailrocket sample events replay into Kafka topics and are planned for raw event persistence.
-3. Local PostgreSQL represents the development warehouse with `raw`, `staging`, and `marts` schemas.
-4. dbt models provide placeholder structure for raw-to-staging-to-marts evolution.
-5. BigQuery is the intended deployed warehouse target once cloud credentials and infra are ready.
+Der aktuelle Stand wurde bereits lokal gegen folgende Schritte geprüft:
 
-## Current TODOs
+- `ruff check .`
+- `pytest`
+- `make run-warehouse` inklusive `dbt build`
+- `make run-quality` mit sauberem Skip-Verhalten ohne erreichbares PostgreSQL
 
-- wire real source credentials and environment secrets
-- stage Olist and Retailrocket full datasets into local development storage
-- replace placeholder dbt SQL with source-backed transformations
-- validate Kestra flows in a running instance
-- connect Terraform state and GCP project configuration
+### Entwicklerfreundliche Grundlagen
 
-## Additional Docs
+- `pre-commit` ist vorbereitet
+- GitHub Actions für Lint, Tests und dbt-Checks sind vorhanden
+- Beispiel-Fixtures für Tests liegen im Repo
+- die Struktur ist bewusst modular, nicht monolithisch
 
-- [Architecture Notes](docs/architecture.md)
+## Aktuelle Grenzen
+
+- Olist nutzt lokal generierte Seed-Daten, solange keine echten CSV-Snapshots bereitliegen
+- Retailrocket ist aktuell Replay-basiert und nicht an einen Live-Collector angebunden
+- MongoDB wird als Raw-Store vorbereitet, aber noch nicht mit langfristiger Retention-Strategie betrieben
+- BigQuery ist architektonisch vorbereitet, aber nicht komplett durchdeployt
+- Kestra startet reale Entry-Points, aber noch ohne dediziertes Runtime-Image
+- einige API- und Cloud-Details sind bewusst als TODO markiert, weil dafür echte Secrets und Zielkonten nötig sind
+
+## Nächste sinnvolle Ausbaustufen
+
+- echte Olist-Rohdaten anstelle lokaler Seeds einbinden
+- Replay zu einem dauerhaften Consumer-/Streaming-Job weiterentwickeln
+- inkrementelle dbt-Strategien ergänzen
+- Source Freshness und Exposures in dbt aufbauen
+- Quality-Checks in Orchestrierungs-Alerts integrieren
+- Streamlit- oder BI-Layer mit Kennzahlen und Session-Analysen ergänzen
+- BigQuery-Zielpfad mit echten GCP-Credentials und Remote State produktionsnäher machen
+
+## Kurzfazit
+
+Dieses Projekt zeigt nicht nur einzelne Tools, sondern einen konsistenten Data-Engineering-Ansatz:
+
+- saubere Schichten
+- klare technische Grenzen
+- ausführbare Starter statt reiner Platzhalter
+- dokumentierte Zielarchitektur
+- ehrlicher Status zwischen lokal nutzbar und cloud-ready vorbereitet
+
+Genau das soll ein gutes Portfolio-Projekt leisten.

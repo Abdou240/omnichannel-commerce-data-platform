@@ -1,15 +1,14 @@
-# Kestra Orchestration Skeleton
+# Kestra Orchestration Foundations
 
-This directory contains starter Kestra flows for local development and future deployment.
+This directory contains the local orchestration foundation for the Omnichannel Commerce platform.
 
-Current scope:
+Current flow:
 
-- placeholder daily flow for Olist batch and Retailrocket replay
-- command-based execution hooks for Python ingestion entry points
-- warehouse and quality placeholder tasks
+- runs batch ingestion
+- replays Retailrocket events
+- logs warehouse layer planning
+- runs the Python quality runner
 
-TODO:
-
-- configure Kestra secrets, variables, and namespace-level defaults
-- validate flows against a running Kestra instance
-- replace local shell commands with containerized or deployed task runners
+The flow is intentionally still shell-based. The next step is to package the project dependencies
+into a dedicated image or task runner so Kestra can execute dbt and Python jobs without relying on
+the host environment.

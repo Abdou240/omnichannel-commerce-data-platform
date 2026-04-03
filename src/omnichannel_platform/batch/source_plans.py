@@ -16,71 +16,56 @@ class BatchSourcePlan:
     details: dict[str, Any]
 
 
-def build_olist_plan(environment: str) -> BatchSourcePlan:
+def _source_config(environment: str, source_name: str) -> dict[str, Any]:
     settings = load_settings(environment)
-    source = settings["sources"]["olist"]
+    return dict(settings["sources"][source_name])
+
+
+def build_olist_plan(environment: str) -> BatchSourcePlan:
+    source = _source_config(environment, "olist")
     return BatchSourcePlan(
         source_name="olist",
         source_kind=source["source_kind"],
         landing_path=source["landing_path"],
         raw_collection=None,
         raw_schema=source["raw_schema"],
-        details={
-            "dataset": source["dataset"],
-            "tables": source["tables"],
-            "extract_mode": source["extract_mode"],
-        },
+        details=source,
     )
 
 
 def build_dummyjson_plan(environment: str) -> BatchSourcePlan:
-    settings = load_settings(environment)
-    source = settings["sources"]["dummyjson"]
+    source = _source_config(environment, "dummyjson")
     return BatchSourcePlan(
         source_name="dummyjson",
         source_kind=source["source_kind"],
         landing_path=source["landing_path"],
         raw_collection=source["raw_collection"],
         raw_schema="raw",
-        details={
-            "base_url": source["base_url"],
-            "endpoint": source["endpoint"],
-        },
+        details=source,
     )
 
 
 def build_open_meteo_plan(environment: str) -> BatchSourcePlan:
-    settings = load_settings(environment)
-    source = settings["sources"]["open_meteo"]
+    source = _source_config(environment, "open_meteo")
     return BatchSourcePlan(
         source_name="open_meteo",
         source_kind=source["source_kind"],
         landing_path=source["landing_path"],
         raw_collection=source["raw_collection"],
         raw_schema="raw",
-        details={
-            "base_url": source["base_url"],
-            "endpoint": source["endpoint"],
-            "daily_metrics": source["daily_metrics"],
-        },
+        details=source,
     )
 
 
 def build_frankfurter_plan(environment: str) -> BatchSourcePlan:
-    settings = load_settings(environment)
-    source = settings["sources"]["frankfurter"]
+    source = _source_config(environment, "frankfurter")
     return BatchSourcePlan(
         source_name="frankfurter",
         source_kind=source["source_kind"],
         landing_path=source["landing_path"],
         raw_collection=source["raw_collection"],
         raw_schema="raw",
-        details={
-            "base_url": source["base_url"],
-            "endpoint": source["endpoint"],
-            "base_currency": source["base_currency"],
-            "quote_currencies": source["quote_currencies"],
-        },
+        details=source,
     )
 
 
@@ -91,4 +76,3 @@ def build_batch_plans(environment: str) -> list[BatchSourcePlan]:
         build_open_meteo_plan(environment),
         build_frankfurter_plan(environment),
     ]
-

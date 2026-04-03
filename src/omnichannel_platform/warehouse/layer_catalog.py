@@ -27,6 +27,9 @@ def build_layer_plans(environment: str) -> list[WarehouseLayerPlan]:
             assets=[
                 "raw.olist_orders",
                 "raw.olist_order_items",
+                "raw.olist_customers",
+                "raw.olist_products",
+                "raw.olist_order_payments",
                 "raw.retailrocket_events",
                 "raw.dummyjson_products",
                 "raw.open_meteo_weather",
@@ -39,6 +42,9 @@ def build_layer_plans(environment: str) -> list[WarehouseLayerPlan]:
             assets=[
                 "stg_olist_orders",
                 "stg_olist_order_items",
+                "stg_olist_customers",
+                "stg_olist_products",
+                "stg_olist_order_payments",
                 "stg_retailrocket_events",
                 "stg_dummyjson_products",
                 "stg_open_meteo_weather",
@@ -49,6 +55,8 @@ def build_layer_plans(environment: str) -> list[WarehouseLayerPlan]:
             layer_name="marts",
             warehouse_engine=local_engine,
             assets=[
+                "int_orders_with_context",
+                "int_retailrocket_sessions",
                 "fct_commerce_orders",
                 "fct_retailrocket_sessions",
                 "dim_products",
@@ -64,7 +72,10 @@ def run(environment: str) -> None:
         for asset in plan.assets:
             LOGGER.info("  asset=%s", asset)
 
-    LOGGER.info("TODO: back raw assets with actual landing tables and replace placeholder dbt SQL")
+    LOGGER.info(
+        "Warehouse foundations are now wired to raw source tables and starter dbt transforms. "
+        "TODO: extend marts with production business semantics and incremental models."
+    )
 
 
 def parse_args() -> argparse.Namespace:
@@ -80,4 +91,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

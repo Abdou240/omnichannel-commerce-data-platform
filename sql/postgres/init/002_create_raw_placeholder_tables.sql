@@ -16,6 +16,29 @@ create table if not exists raw.olist_order_items (
     freight_value numeric(12, 2)
 );
 
+create table if not exists raw.olist_customers (
+    customer_id text,
+    customer_city text,
+    customer_state text
+);
+
+create table if not exists raw.olist_products (
+    product_id text,
+    product_category_name text,
+    product_name_length integer,
+    product_description_length integer,
+    product_photos_qty integer,
+    product_weight_g integer
+);
+
+create table if not exists raw.olist_order_payments (
+    order_id text,
+    payment_sequential integer,
+    payment_type text,
+    payment_installments integer,
+    payment_value numeric(12, 2)
+);
+
 create table if not exists raw.retailrocket_events (
     event_id text,
     visitor_id text,
@@ -50,4 +73,3 @@ create table if not exists raw.frankfurter_fx_rates (
     fx_rate numeric(18, 8),
     ingested_at timestamptz
 );
-

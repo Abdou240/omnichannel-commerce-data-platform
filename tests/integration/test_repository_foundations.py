@@ -8,9 +8,11 @@ def test_repository_contains_key_foundation_files() -> None:
         Path("orchestration/kestra/flows/daily_platform_ingestion.yml"),
         Path("data/sample/streaming/retailrocket_events.jsonl"),
         Path("warehouse/dbt/dbt_project.yml"),
+        Path("warehouse/dbt/macros/raw_relations.sql"),
         Path("infra/terraform/gcp/main.tf"),
         Path("kafka/topics.yaml"),
         Path("quality/contracts/raw_olist_orders.yml"),
+        Path("src/omnichannel_platform/quality/rules_catalog.py"),
         Path("spark/jobs/clickstream_sessionization.py"),
     ]
 

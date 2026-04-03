@@ -1,15 +1,23 @@
 # Spark Starter Assets
 
-This directory contains minimal Spark foundations for future distributed transformations.
+This directory contains the starter Spark path for distributed clickstream processing.
 
 Current scope:
 
 - local Spark defaults example
-- starter job skeleton
+- Retailrocket sessionization job at `spark/jobs/clickstream_sessionization.py`
+
+Local usage:
+
+```bash
+make spark-sessionize
+```
+
+The current job reads the sample Retailrocket replay file, applies a 30-minute session gap, and
+writes parquet session summaries under `storage/gold/retailrocket_sessions`.
 
 TODO:
 
-- decide whether Spark is needed for batch volume or complex event processing
 - package jobs for cluster or serverless execution
-- wire object storage paths and checkpointing once source contracts are in place
-
+- write results to object storage or a warehouse table
+- add checkpointing for long-running streaming workloads

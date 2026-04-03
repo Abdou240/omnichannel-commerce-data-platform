@@ -2,18 +2,24 @@ version: 2
 
 sources:
   - name: raw
-    description: Placeholder raw-layer sources for the Omnichannel Commerce platform.
+    description: Raw-layer sources landed from Olist, Retailrocket, and external enrichment APIs.
     schema: raw
     tables:
       - name: olist_orders
-        description: "TODO: map Olist order headers into the warehouse raw layer."
+        description: Olist order headers loaded into the raw warehouse schema.
       - name: olist_order_items
-        description: "TODO: map Olist order items into the warehouse raw layer."
+        description: Olist order items loaded into the raw warehouse schema.
+      - name: olist_customers
+        description: Olist customer reference records loaded into the raw warehouse schema.
+      - name: olist_products
+        description: Olist product attributes loaded into the raw warehouse schema.
+      - name: olist_order_payments
+        description: Olist payment records loaded into the raw warehouse schema.
       - name: retailrocket_events
-        description: "TODO: map replayed Retailrocket event data into the warehouse raw layer."
+        description: Retailrocket replay events loaded from the Kafka replay foundation.
       - name: dummyjson_products
-        description: "TODO: map DummyJSON product payloads into the warehouse raw layer."
+        description: DummyJSON product payloads normalized into raw product rows.
       - name: open_meteo_weather
-        description: "TODO: map Open-Meteo daily weather payloads into the warehouse raw layer."
+        description: Open-Meteo daily weather payloads normalized into raw weather rows.
       - name: frankfurter_fx_rates
-        description: "TODO: map Frankfurter FX payloads into the warehouse raw layer."
+        description: Frankfurter FX payloads normalized into raw FX rows.

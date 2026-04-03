@@ -1,18 +1,26 @@
-# dbt Starter Project
+# dbt Project
 
-This dbt project is intentionally minimal.
+This dbt project powers the starter warehouse flow for the Omnichannel Commerce platform.
 
 Current scope:
 
-- project configuration
-- local PostgreSQL profile example
-- BigQuery production target example
-- empty-safe starter models for raw-to-staging-to-marts flow
-- schema and singular test scaffolding
-- CI-safe DuckDB profile for GitHub Actions
+- raw source declarations for Olist, Retailrocket, DummyJSON, Open-Meteo, and Frankfurter
+- source-aware staging models that fall back cleanly when raw tables are absent
+- intermediate models for order context and clickstream sessionization
+- marts for commerce orders, Retailrocket sessions, and products
+- schema tests and singular tests
+- CI-safe DuckDB profile plus example Postgres and BigQuery targets
+
+Local usage:
+
+```bash
+make run-warehouse
+```
+
+That target runs the warehouse layer planner and a `dbt build` against the CI-safe DuckDB profile.
 
 TODO:
 
-- replace placeholder SQL with source-backed models
-- add source tests, freshness, and exposures
-- finalize PostgreSQL local raw table loading and BigQuery deployed dataset strategy
+- add incremental strategies for large raw tables
+- add exposures, source freshness, and semantic documentation
+- align BigQuery deployment settings with real project environments

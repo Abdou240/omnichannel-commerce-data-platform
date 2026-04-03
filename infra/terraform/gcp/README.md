@@ -1,17 +1,18 @@
-# GCP Terraform Skeleton
+# GCP Terraform Foundation
 
-This directory contains a minimal GCP foundation for a future deployed version of the platform.
+This directory contains the starter GCP foundation for the deployed warehouse target.
 
 Current scope:
 
-- provider and variable definitions
-- starter service account
+- Google provider pinned to `5.6.0`
+- platform service account
 - raw and processed GCS buckets
-- BigQuery dataset placeholder
+- BigQuery datasets for `commerce_raw`, `commerce_staging`, and `commerce_marts`
+- example variables for credentials, project, region, and bucket naming
 
 TODO:
 
 - configure remote Terraform state before shared usage
 - enable required GCP APIs in the target project
-- add IAM bindings, networking, and environment-specific modules
-
+- add workload identity, secret handling, and environment modules
+- wire CI/CD deployment and state promotion

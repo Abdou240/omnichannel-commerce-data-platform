@@ -2,50 +2,141 @@
 
 ## Scope
 
-This repository models an omnichannel commerce platform with:
+This repository models a local-first Omnichannel Commerce platform with:
 
-- Olist as the batch commerce domain
-- Retailrocket as the event/clickstream domain
-- DummyJSON as a starter product enrichment API
-- Open-Meteo as weather enrichment
-- Frankfurter as FX enrichment
-- MongoDB for raw JSON and event documents
-- PostgreSQL for local warehouse development
-- BigQuery as the deployed warehouse target
+- Olist batch commerce data
+- Retailrocket clickstream replay
+- DummyJSON product enrichment
+- Open-Meteo weather enrichment
+- Frankfurter FX normalization
+- MongoDB raw document storage
+- PostgreSQL local raw warehouse
+- BigQuery as the cloud warehouse target
 
-## Logical Layers
+## End-to-End Flow
 
-### Raw
+```text
+Olist CSVs / seeds -----------------------------+
+DummyJSON API ----------------------------------+--> bronze files + Mongo raw --> PostgreSQL raw
+Open-Meteo API ---------------------------------+
+Frankfurter API --------------------------------+
 
-- Olist batch tables land into PostgreSQL `raw.*`
-- Retailrocket replay events are published to Kafka topics and persisted as raw documents in MongoDB
-- DummyJSON, Open-Meteo, and Frankfurter payloads are stored as raw documents and prepared for raw warehouse tables
+Retailrocket replay file --> Kafka topics ------+--> PostgreSQL raw + Mongo raw
 
-### Staging
+PostgreSQL raw --> dbt staging --> dbt intermediate --> dbt marts --> BigQuery target
+```
 
-- Normalize Olist order headers and order items
-- Normalize Retailrocket event timestamps and event types
-- Flatten DummyJSON product payloads into product attributes
-- Standardize daily weather and FX reference data
+## Raw Layer
 
-### Marts
+### PostgreSQL raw tables
 
-- `fct_commerce_orders`
-- `fct_retailrocket_sessions`
-- `dim_products`
+- `raw.olist_orders`
+- `raw.olist_order_items`
+- `raw.olist_customers`
+- `raw.olist_products`
+- `raw.olist_order_payments`
+- `raw.retailrocket_events`
+- `raw.dummyjson_products`
+- `raw.open_meteo_weather`
+- `raw.frankfurter_fx_rates`
+- `raw.ingestion_audit`
 
-These remain placeholders until the real business rules and source contracts are implemented.
+### MongoDB raw collections
 
-## Local Stack
+- `retailrocket_events_raw`
+- `dummyjson_products_raw`
+- `open_meteo_weather_raw`
+- `frankfurter_fx_raw`
 
-- Redpanda for Kafka-compatible event replay
-- MongoDB for raw document storage
-- PostgreSQL for local warehouse development
-- Kestra for orchestration scaffolding
-- dbt for transformation structure
+MongoDB is used as a raw document store for JSON payload inspection and flexible replay traces.
 
-## Notes
+## Staging Layer
 
-- The repository intentionally avoids pretending that source ingestion is complete.
-- Credentials, cloud accounts, and production-grade state handling are left as TODOs.
+The dbt staging layer normalizes source-specific structures:
 
+- Olist orders, items, customers, products, payments
+- Retailrocket events
+- DummyJSON products
+- Open-Meteo weather
+- Frankfurter FX rates
+
+Each staging model is source-aware and compiles safely even when local raw tables are not present yet.
+
+## Intermediate Layer
+
+### `int_orders_with_context`
+
+Starter order-grain enrichment that joins:
+
+- Olist order headers
+- Olist item aggregates
+- Olist customer geography
+- Olist product attributes
+- weather by order date and customer city
+- FX by order date
+
+### `int_retailrocket_sessions`
+
+Starter clickstream sessionization that groups events by `visitor_id` and a 30-minute inactivity gap.
+
+## Mart Layer
+
+### `fct_commerce_orders`
+
+Starter order-grain fact model with:
+
+- order timing and status
+- customer geography
+- item and payment metrics
+- weather context
+- FX normalization helper
+
+### `fct_retailrocket_sessions`
+
+Starter session-grain fact model with:
+
+- session boundaries
+- event counts by type
+- sample item identifier
+
+### `dim_products`
+
+Starter product dimension combining:
+
+- Olist product attributes
+- DummyJSON API products
+
+The two source systems remain logically distinct through `product_key` and `source_system`.
+
+## Orchestration
+
+Kestra orchestrates the local starter flow:
+
+1. batch ingestion
+2. Retailrocket replay
+3. warehouse layer planning
+4. quality execution
+
+The flow is intentionally shell-based until a dedicated runtime image is introduced.
+
+## Quality
+
+Quality foundations combine:
+
+- YAML contracts under `quality/contracts/`
+- SQL expectations under `quality/expectations/`
+- dbt model tests and singular tests
+
+The Python quality runner executes SQL expectations against PostgreSQL and writes reports to:
+
+- `storage/checkpoints/quality/last_run.json`
+
+## Cloud Foundation
+
+Terraform currently provisions starter GCP resources for:
+
+- raw and processed GCS buckets
+- BigQuery datasets for raw, staging, and marts
+- a platform service account and IAM bindings
+
+Secrets, API enablement, remote state, and environment promotion remain TODOs.

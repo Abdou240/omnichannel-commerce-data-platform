@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BROKER="${1:-localhost:19092}"
+BROKER="${1:-localhost:9092}"
 
 echo "Creating starter Kafka topics on ${BROKER}"
 

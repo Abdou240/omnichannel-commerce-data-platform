@@ -1,12 +1,23 @@
 {{ config(materialized='view') }}
 
--- TODO: replace this placeholder with raw.olist_orders normalization once the
--- local Postgres raw layer is populated.
+{% if execute and raw_relation_exists('olist_orders') %}
 select
-    cast(null as varchar) as order_id,
-    cast(null as varchar) as customer_id,
-    cast(null as timestamp) as order_purchase_ts,
-    cast(null as varchar) as order_status,
-    cast('olist' as varchar) as source_system
+    cast(order_id as {{ dbt.type_string() }}) as order_id,
+    cast(customer_id as {{ dbt.type_string() }}) as customer_id,
+    cast(order_status as {{ dbt.type_string() }}) as order_status,
+    cast(order_purchase_timestamp as {{ dbt.type_timestamp() }}) as order_purchase_ts,
+    cast(order_approved_at as {{ dbt.type_timestamp() }}) as order_approved_ts,
+    cast(order_estimated_delivery_date as {{ dbt.type_timestamp() }}) as order_estimated_delivery_ts,
+    cast('olist' as {{ dbt.type_string() }}) as source_system
+from {{ source('raw', 'olist_orders') }}
+{% else %}
+select
+    cast(null as {{ dbt.type_string() }}) as order_id,
+    cast(null as {{ dbt.type_string() }}) as customer_id,
+    cast(null as {{ dbt.type_string() }}) as order_status,
+    cast(null as {{ dbt.type_timestamp() }}) as order_purchase_ts,
+    cast(null as {{ dbt.type_timestamp() }}) as order_approved_ts,
+    cast(null as {{ dbt.type_timestamp() }}) as order_estimated_delivery_ts,
+    cast('olist' as {{ dbt.type_string() }}) as source_system
 where 1 = 0
-
+{% endif %}
