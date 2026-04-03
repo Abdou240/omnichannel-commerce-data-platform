@@ -9,8 +9,6 @@ on:
 jobs:
   dbt-build:
     runs-on: ubuntu-latest
-    env:
-      WAREHOUSE_PATH: ${{ runner.temp }}/omnichannel_ci.duckdb
 
     steps:
       - name: Check out repository
@@ -33,12 +31,14 @@ jobs:
 
       - name: Parse dbt project
         run: |
+          export WAREHOUSE_PATH="${RUNNER_TEMP}/omnichannel_ci.duckdb"
           dbt parse \
             --project-dir warehouse/dbt \
             --profiles-dir "${RUNNER_TEMP}/dbt"
 
       - name: Build dbt project
         run: |
+          export WAREHOUSE_PATH="${RUNNER_TEMP}/omnichannel_ci.duckdb"
           dbt build \
             --project-dir warehouse/dbt \
             --profiles-dir "${RUNNER_TEMP}/dbt"
