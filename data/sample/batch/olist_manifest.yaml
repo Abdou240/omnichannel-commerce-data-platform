@@ -1,0 +1,18 @@
+dataset: olistbr/brazilian-ecommerce
+description: Starter manifest for local Olist batch ingestion.
+tables:
+  - name: olist_orders
+    file_name: olist_orders_dataset.csv
+  - name: olist_order_items
+    file_name: olist_order_items_dataset.csv
+  - name: olist_customers
+    file_name: olist_customers_dataset.csv
+  - name: olist_products
+    file_name: olist_products_dataset.csv
+  - name: olist_order_payments
+    file_name: olist_order_payments_dataset.csv
+
+todo:
+  - "Download the real Olist CSV snapshots into a local or object-storage landing zone."
+  - "Add watermarking and batch metadata once ingestion is implemented."
+

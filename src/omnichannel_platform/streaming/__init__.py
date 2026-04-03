@@ -1,0 +1,2 @@
+"""Streaming ingestion starter modules."""
+

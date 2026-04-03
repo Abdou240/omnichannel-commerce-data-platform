@@ -1,0 +1,28 @@
+runtime:
+  environment: dev
+
+sources:
+  olist:
+    local_manifest: data/sample/batch/olist_manifest.yaml
+    schedule: "0 3 * * *"
+  retailrocket:
+    bootstrap_servers: localhost:19092
+    starting_offsets: earliest
+  dummyjson:
+    page_size: 30
+  open_meteo:
+    geographies:
+      - city: sao_paulo
+        latitude: -23.5505
+        longitude: -46.6333
+  frankfurter:
+    quote_currencies:
+      - USD
+      - BRL
+
+warehouse:
+  target: dev
+
+notes:
+  - "TODO: seed local PostgreSQL raw tables with Olist snapshots or staged CSV files."
+  - "TODO: replace Retailrocket sample replay files with the full dataset before scale testing."

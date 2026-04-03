@@ -1,0 +1,2 @@
+"""Warehouse starter package."""
+

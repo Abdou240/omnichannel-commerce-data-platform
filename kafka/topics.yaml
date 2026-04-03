@@ -1,0 +1,21 @@
+topics:
+  - name: retailrocket.events.raw
+    partitions: 3
+    replication_factor: 1
+    retention_ms: 604800000
+  - name: retailrocket.events.view
+    partitions: 6
+    replication_factor: 1
+    retention_ms: 259200000
+  - name: retailrocket.events.addtocart
+    partitions: 6
+    replication_factor: 1
+    retention_ms: 259200000
+  - name: retailrocket.events.transaction
+    partitions: 6
+    replication_factor: 1
+    retention_ms: 259200000
+  - name: retailrocket.events.dlq
+    partitions: 3
+    replication_factor: 1
+    retention_ms: 1209600000

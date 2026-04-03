@@ -1,0 +1,35 @@
+runtime:
+  environment: prod
+
+storage:
+  object_store: gcs
+
+sources:
+  olist:
+    source_bucket: TODO_OLIST_LANDING_BUCKET
+    extract_mode: incremental
+  retailrocket:
+    bootstrap_servers: TODO_MANAGED_KAFKA_BOOTSTRAP
+    security_protocol: SASL_SSL
+    sasl_secret_ref: TODO_SECRET_MANAGER_KAFKA
+  dummyjson:
+    raw_collection: dummyjson_products_raw
+  open_meteo:
+    raw_collection: open_meteo_weather_raw
+  frankfurter:
+    raw_collection: frankfurter_fx_raw
+
+warehouse:
+  target: prod
+
+gcp:
+  project_id: TODO_PROJECT_ID
+  region: TODO_REGION
+  raw_bucket: TODO_RAW_BUCKET
+  processed_bucket: TODO_PROCESSED_BUCKET
+  bigquery_dataset: analytics
+
+notes:
+  - "TODO: wire all prod secrets through Secret Manager, Vault, or the target deployment platform."
+  - "TODO: validate network, service account, and IAM requirements before applying Terraform."
+  - "TODO: decide whether Mongo raw collections stay operational or are mirrored into GCS/BigQuery for long-term retention."

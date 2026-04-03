@@ -1,0 +1,21 @@
+{
+  "products": [
+    {
+      "id": 101,
+      "title": "Starter Headphones",
+      "brand": "AudioFlex",
+      "category": "audio",
+      "price": 79.99,
+      "currency": "USD"
+    },
+    {
+      "id": 102,
+      "title": "Starter Desk Lamp",
+      "brand": "LightHouse",
+      "category": "home-office",
+      "price": 34.5,
+      "currency": "USD"
+    }
+  ]
+}
+

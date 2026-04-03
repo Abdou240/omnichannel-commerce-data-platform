@@ -1,0 +1,107 @@
+project:
+  name: omnichannel-commerce-data-platform
+  domain: omnichannel-commerce
+  use_case: omnichannel commerce analytics and customer behavior modeling
+
+runtime:
+  timezone: Europe/Berlin
+  environment: dev
+
+storage:
+  bronze_path: storage/bronze
+  silver_path: storage/silver
+  gold_path: storage/gold
+  checkpoint_path: storage/checkpoints
+  object_store: local
+
+sources:
+  olist:
+    provider: kaggle
+    dataset: olistbr/brazilian-ecommerce
+    source_kind: batch_relational
+    extract_mode: full_refresh
+    landing_path: storage/bronze/olist/
+    raw_schema: raw
+    tables:
+      - olist_orders
+      - olist_order_items
+      - olist_customers
+      - olist_products
+      - olist_order_payments
+  retailrocket:
+    provider: kaggle
+    dataset: retailrocket/ecommerce-dataset
+    source_kind: clickstream_replay
+    replay_source: data/sample/streaming/retailrocket_events.jsonl
+    topic_namespace: retailrocket.events
+    raw_topic: retailrocket.events.raw
+    event_topics:
+      view: retailrocket.events.view
+      addtocart: retailrocket.events.addtocart
+      transaction: retailrocket.events.transaction
+      default: retailrocket.events.dlq
+    event_types:
+      - view
+      - addtocart
+      - transaction
+    consumer_group: retailrocket-replay-dev
+    checkpoint_path: storage/checkpoints/retailrocket/
+  dummyjson:
+    provider: dummyjson
+    source_kind: product_api_json
+    base_url: https://dummyjson.com
+    endpoint: /products
+    landing_path: storage/bronze/dummyjson/products/
+    raw_collection: dummyjson_products_raw
+  open_meteo:
+    provider: open-meteo
+    source_kind: weather_enrichment_api
+    base_url: https://archive-api.open-meteo.com
+    endpoint: /v1/archive
+    landing_path: storage/bronze/open_meteo/weather/
+    raw_collection: open_meteo_weather_raw
+    daily_metrics:
+      - temperature_2m_mean
+      - precipitation_sum
+  frankfurter:
+    provider: frankfurter
+    source_kind: fx_rates_api
+    base_url: https://api.frankfurter.dev
+    endpoint: /v2/rates
+    landing_path: storage/bronze/frankfurter/fx/
+    raw_collection: frankfurter_fx_raw
+    base_currency: EUR
+    quote_currencies:
+      - USD
+      - BRL
+
+raw_document_store:
+  engine: mongodb
+  database: commerce_raw
+  collections:
+    retailrocket_events: retailrocket_events_raw
+    dummyjson_products: dummyjson_products_raw
+    open_meteo_weather: open_meteo_weather_raw
+    frankfurter_fx: frankfurter_fx_raw
+
+warehouse:
+  local:
+    engine: postgres
+    database: commerce_platform
+    schemas:
+      raw: raw
+      staging: staging
+      marts: marts
+  cloud:
+    engine: bigquery
+    datasets:
+      raw: commerce_raw
+      staging: commerce_staging
+      marts: commerce_marts
+    location: europe-west3
+  dbt_project_dir: warehouse/dbt
+  target: dev
+
+orchestration:
+  engine: kestra
+  namespace: omnichannel.platform.dev

@@ -1,0 +1,43 @@
+id: omnichannel_commerce_daily
+namespace: omnichannel.platform.dev
+description: Starter Kestra flow for Olist batch ingestion, Retailrocket replay, and warehouse planning.
+
+triggers:
+  - id: daily_schedule
+    type: io.kestra.plugin.core.trigger.Schedule
+    cron: "0 6 * * *"
+
+tasks:
+  - id: start_log
+    type: io.kestra.plugin.core.log.Log
+    message: "Starting scaffold flow {{ flow.id }} in {{ flow.namespace }}"
+
+  - id: run_batch_orders
+    type: io.kestra.plugin.scripts.shell.Commands
+    warningOnStdErr: false
+    commands:
+      - python -m omnichannel_platform.batch.commerce_batch_ingestion --env dev
+
+  - id: replay_retailrocket_events
+    type: io.kestra.plugin.scripts.shell.Commands
+    warningOnStdErr: false
+    commands:
+      - python -m omnichannel_platform.streaming.clickstream_consumer --env dev --mode replay
+
+  - id: warehouse_layers
+    type: io.kestra.plugin.scripts.shell.Commands
+    warningOnStdErr: false
+    commands:
+      - python -m omnichannel_platform.warehouse.layer_catalog --env dev
+
+  - id: quality_placeholder
+    type: io.kestra.plugin.core.log.Log
+    message: "TODO: execute dbt build and source-aware quality checks once warehouse loading exists."
+
+  - id: finish_log
+    type: io.kestra.plugin.core.log.Log
+    message: "Scaffold flow finished"
+
+# TODO:
+# - parameterize namespace and environment variables before promoting beyond local development
+# - wire secrets for Olist, MongoDB, Kafka, and BigQuery via Kestra secret management

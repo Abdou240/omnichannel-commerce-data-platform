@@ -1,0 +1,18 @@
+[
+  {
+    "order_id": "OLIST-1001",
+    "customer_id": "customer-001",
+    "order_status": "delivered",
+    "order_purchase_timestamp": "2026-04-03T08:00:00Z",
+    "order_approved_at": "2026-04-03T08:10:00Z",
+    "order_estimated_delivery_date": "2026-04-10T00:00:00Z"
+  },
+  {
+    "order_id": "OLIST-1002",
+    "customer_id": "customer-002",
+    "order_status": "shipped",
+    "order_purchase_timestamp": "2026-04-03T08:10:00Z",
+    "order_approved_at": "2026-04-03T08:15:00Z",
+    "order_estimated_delivery_date": "2026-04-11T00:00:00Z"
+  }
+]

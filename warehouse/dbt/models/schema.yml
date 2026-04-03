@@ -1,0 +1,75 @@
+version: 2
+
+models:
+  - name: stg_olist_orders
+    description: Staging placeholder for Olist order headers.
+    columns:
+      - name: order_id
+        tests: [not_null, unique]
+      - name: customer_id
+        tests: [not_null]
+      - name: order_status
+        tests: [not_null]
+
+  - name: stg_olist_order_items
+    description: Staging placeholder for Olist order items.
+    columns:
+      - name: order_id
+        tests: [not_null]
+      - name: order_item_id
+        tests: [not_null]
+
+  - name: stg_retailrocket_events
+    description: Staging placeholder for Retailrocket events.
+    columns:
+      - name: event_id
+        tests: [not_null, unique]
+      - name: visitor_id
+        tests: [not_null]
+      - name: event_type
+        tests: [not_null]
+
+  - name: stg_dummyjson_products
+    description: Staging placeholder for DummyJSON products.
+    columns:
+      - name: product_id
+        tests: [not_null, unique]
+
+  - name: stg_open_meteo_weather
+    description: Staging placeholder for Open-Meteo daily weather data.
+    columns:
+      - name: weather_date
+        tests: [not_null]
+
+  - name: stg_frankfurter_fx_rates
+    description: Staging placeholder for Frankfurter FX rates.
+    columns:
+      - name: rate_date
+        tests: [not_null]
+      - name: quote_currency
+        tests: [not_null]
+
+  - name: int_orders_with_context
+    description: Intermediate placeholder joining orders, products, FX, and weather.
+
+  - name: int_retailrocket_sessions
+    description: Intermediate placeholder for replayed clickstream sessionization.
+
+  - name: fct_commerce_orders
+    description: Commerce order mart placeholder.
+    columns:
+      - name: order_id
+        tests: [not_null, unique]
+
+  - name: fct_retailrocket_sessions
+    description: Retailrocket session mart placeholder.
+    columns:
+      - name: session_key
+        tests: [not_null, unique]
+
+  - name: dim_products
+    description: Product dimension placeholder combining DummyJSON and Olist product concepts.
+    columns:
+      - name: product_id
+        tests: [not_null, unique]
+

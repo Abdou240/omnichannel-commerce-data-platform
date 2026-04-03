@@ -1,0 +1,66 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "omnichannel-commerce-data-platform"
+version = "0.1.0"
+description = "Production-style Data Engineering portfolio scaffold for omnichannel commerce."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+  { name = "Abderrahmen Mansour" }
+]
+license = { text = "MIT" }
+dependencies = [
+  "pydantic>=2.8,<3.0",
+  "python-dotenv>=1.0,<2.0",
+  "PyYAML>=6.0,<7.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pre-commit>=4.0,<5.0",
+  "pytest>=8.0,<9.0",
+  "ruff>=0.6,<1.0",
+]
+batch = [
+  "pandas>=2.2,<3.0",
+  "psycopg[binary]>=3.2,<4.0",
+  "requests>=2.32,<3.0",
+]
+streaming = [
+  "kafka-python-ng>=2.2,<3.0",
+]
+warehouse = [
+  "duckdb>=1.1,<2.0",
+  "dbt-bigquery>=1.9,<2.0",
+  "dbt-duckdb>=1.9,<2.0",
+  "dbt-postgres>=1.9,<2.0",
+]
+nosql = [
+  "pymongo>=4.8,<5.0",
+]
+quality = [
+  "great-expectations>=1.2,<2.0",
+]
+orchestration = [
+  "requests>=2.32,<3.0",
+]
+spark = [
+  "pyspark>=3.5,<4.0",
+]
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"

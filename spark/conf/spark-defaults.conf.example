@@ -1,0 +1,9 @@
+spark.master                     local[*]
+spark.app.name                   omnichannel-platform
+spark.sql.shuffle.partitions     4
+spark.sql.session.timeZone       Europe/Berlin
+
+# TODO:
+# - set cloud storage connectors when running outside local development
+# - configure event logs, history server, and adaptive execution for larger jobs
+

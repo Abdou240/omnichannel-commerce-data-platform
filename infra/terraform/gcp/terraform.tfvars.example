@@ -1,0 +1,11 @@
+project_id            = "TODO_PROJECT_ID"
+region                = "europe-west3"
+environment           = "dev"
+raw_bucket_name       = "TODO-raw-bucket"
+processed_bucket_name = "TODO-processed-bucket"
+bigquery_dataset_id   = "analytics"
+
+# TODO:
+# - rename buckets to globally unique values before apply
+# - configure a remote backend before team usage
+

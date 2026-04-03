@@ -1,0 +1,29 @@
+omnichannel_platform:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('POSTGRES_HOST', 'localhost') }}"
+      user: "{{ env_var('POSTGRES_USER', 'commerce') }}"
+      password: "{{ env_var('POSTGRES_PASSWORD', 'commerce') }}"
+      port: "{{ env_var('POSTGRES_PORT', '5432') | int }}"
+      dbname: "{{ env_var('POSTGRES_DB', 'commerce_platform') }}"
+      schema: "{{ env_var('POSTGRES_STAGING_SCHEMA', 'staging') }}"
+      threads: 4
+    ci:
+      type: duckdb
+      path: "{{ env_var('WAREHOUSE_PATH', '/tmp/omnichannel_ci.duckdb') }}"
+      threads: 4
+    prod:
+      type: bigquery
+      method: service-account-json
+      project: "{{ env_var('WAREHOUSE_BIGQUERY_PROJECT', env_var('GCP_PROJECT_ID')) }}"
+      dataset: "{{ env_var('WAREHOUSE_BIGQUERY_STAGING_DATASET', 'commerce_staging') }}"
+      location: "{{ env_var('WAREHOUSE_BIGQUERY_LOCATION', env_var('GCP_REGION', 'europe-west3')) }}"
+      keyfile_json: "{{ env_var('GCP_SERVICE_ACCOUNT_JSON') }}"
+      threads: 4
+
+# TODO:
+# - move prod credential handling to Secret Manager, CI variables, or the target orchestrator
+# - split datasets by environment if dev and prod share the same GCP project
+# - align raw and marts schemas/datasets with source-specific ingestion once tables exist

@@ -1,0 +1,31 @@
+topics:
+  - name: retailrocket.events.raw
+    partitions: 3
+    replication_factor: 1
+    cleanup_policy: delete
+    retention_ms: 259200000
+  - name: retailrocket.events.view
+    partitions: 6
+    replication_factor: 1
+    cleanup_policy: delete
+    retention_ms: 259200000
+  - name: retailrocket.events.addtocart
+    partitions: 6
+    replication_factor: 1
+    cleanup_policy: delete
+    retention_ms: 259200000
+  - name: retailrocket.events.transaction
+    partitions: 6
+    replication_factor: 1
+    cleanup_policy: delete
+    retention_ms: 259200000
+  - name: retailrocket.events.dlq
+    partitions: 3
+    replication_factor: 1
+    cleanup_policy: delete
+    retention_ms: 1209600000
+
+todo:
+  - "Increase replication_factor in managed environments."
+  - "Add schema registry compatibility and event versioning before publishing production traffic."
+  - "Decide whether to preserve the raw replay topic permanently or only keep typed event topics."

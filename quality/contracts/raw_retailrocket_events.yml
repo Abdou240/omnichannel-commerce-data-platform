@@ -1,0 +1,11 @@
+dataset: raw.retailrocket_events
+owner: data-platform
+description: Starter contract for Retailrocket replay events after Kafka landing.
+rules:
+  - name: event_id_not_null
+    expectation: event_id must be present
+  - name: visitor_id_not_null
+    expectation: visitor_id must be present
+  - name: event_type_domain
+    expectation: event_type must be one of view, addtocart, or transaction
+

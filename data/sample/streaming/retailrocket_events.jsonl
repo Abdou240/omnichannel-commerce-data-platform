@@ -1,0 +1,4 @@
+{"event_id":"rr-evt-001","visitor_id":"visitor-101","event_type":"view","item_id":"SKU-1001","transaction_id":null,"event_ts":"2026-04-03T08:01:00Z"}
+{"event_id":"rr-evt-002","visitor_id":"visitor-101","event_type":"addtocart","item_id":"SKU-1001","transaction_id":null,"event_ts":"2026-04-03T08:03:00Z"}
+{"event_id":"rr-evt-003","visitor_id":"visitor-205","event_type":"transaction","item_id":"SKU-2044","transaction_id":"TX-5501","event_ts":"2026-04-03T08:11:00Z"}
+

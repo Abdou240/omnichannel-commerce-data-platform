@@ -1,0 +1,19 @@
+version: 2
+
+sources:
+  - name: raw
+    description: Placeholder raw-layer sources for the Omnichannel Commerce platform.
+    schema: raw
+    tables:
+      - name: olist_orders
+        description: "TODO: map Olist order headers into the warehouse raw layer."
+      - name: olist_order_items
+        description: "TODO: map Olist order items into the warehouse raw layer."
+      - name: retailrocket_events
+        description: "TODO: map replayed Retailrocket event data into the warehouse raw layer."
+      - name: dummyjson_products
+        description: "TODO: map DummyJSON product payloads into the warehouse raw layer."
+      - name: open_meteo_weather
+        description: "TODO: map Open-Meteo daily weather payloads into the warehouse raw layer."
+      - name: frankfurter_fx_rates
+        description: "TODO: map Frankfurter FX payloads into the warehouse raw layer."

@@ -1,0 +1,11 @@
+dataset: raw.olist_orders
+owner: data-platform
+description: Starter contract for Olist order headers landed into the raw warehouse schema.
+rules:
+  - name: order_id_not_null
+    expectation: order_id must be present
+  - name: order_status_domain
+    expectation: order_status should match the known Olist order lifecycle domain
+  - name: order_purchase_timestamp_present
+    expectation: order_purchase_timestamp should be populated for landed records
+
