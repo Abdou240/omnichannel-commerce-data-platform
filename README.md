@@ -78,6 +78,9 @@ Im lokalen Setup werden deterministische Seed-Dateien erzeugt, wenn keine echten
 bereitgestellt wurden. Dadurch bleibt der Batch-Pfad lauffähig, ohne einen „Fake-Production“-Eindruck
 zu erzeugen.
 
+Die Zielquelle ist das reale Kaggle-Dataset `olistbr/brazilian-ecommerce`. Für einen echten Download-
+Pfad sind Kaggle-Credentials nötig; bis dahin bleibt die Seed-Strategie der lauffähige Fallback.
+
 ### Retailrocket
 
 Clickstream-/Event-Daten für Replay-Szenarien:
@@ -89,9 +92,16 @@ Clickstream-/Event-Daten für Replay-Szenarien:
 Die Events werden im Starter-Setup aus einer JSONL-Datei gelesen, normalisiert, auf Kafka-Topics
 geroutet und zusätzlich in der Raw-Schicht persistiert.
 
-### DummyJSON
+Die Zielquelle ist das reale Kaggle-Dataset `retailrocket/ecommerce-dataset`. Lokal bleibt das Repo
+absichtlich replay-orientiert, bis vollständige Event-Dateien automatisiert bereitgestellt werden.
 
-Produkt-API als leichtgewichtige Quelle für Enrichment und Dimensionserweiterung.
+### Open Food Facts
+
+Echte Produkt-API für JSON-basierte Produktstammdaten.
+
+Im aktuellen Starter ruft die Batch-Pipeline konkrete Produkt-Barcodes über die Produkt-API ab.
+Das ist robuster als ein freier Such-Endpoint und bildet trotzdem echte Live-Daten ab. Wenn die API
+temporär nicht verfügbar ist, fällt die Pipeline auf ein kleines lokales Sample zurück.
 
 ### Open-Meteo
 
@@ -109,6 +119,10 @@ Raw-Document-Store für JSON-Payloads und Replay-Artefakte.
 
 - PostgreSQL dient lokal als Warehouse- und Raw-Execution-Ziel
 - BigQuery ist als Cloud-Warehouse-Ziel in dbt- und Terraform-Struktur vorbereitet
+- als reale Public-Reference-Sets sind `ga4_obfuscated_sample_ecommerce` und `thelook_ecommerce`
+  vorgesehen
+- wichtig: diese Public Datasets liegen in der `US` Multi-Region, daher sollten spätere direkte
+  BigQuery-Joins ebenfalls in `US` geplant werden
 
 ## Architektur auf einen Blick
 
@@ -128,7 +142,8 @@ Raw-Document-Store für JSON-Payloads und Replay-Artefakte.
              |                        |                        |
              v                        v                        v
    +------------------+    +------------------+    +------------------+
-   | DummyJSON API    |    | Open-Meteo API   |    | Frankfurter API  |
+   | Open Food Facts  |    | Open-Meteo API   |    | Frankfurter API  |
+   | Product API      |    |                  |    |                  |
    +------------------+    +------------------+    +------------------+
              \                    |                         /
               \                   |                        /
@@ -144,10 +159,16 @@ Raw-Document-Store für JSON-Payloads und Replay-Artefakte.
                         dbt staging / intermediate
                                   |
                                   v
-                               dbt marts
+                       dbt marts
                                   |
                                   v
                        BigQuery als Zielarchitektur
+
+                    +----------------------------------+
+                    | Public BigQuery Referenzen       |
+                    | ga4_obfuscated_sample_ecommerce  |
+                    | thelook_ecommerce                |
+                    +----------------------------------+
 
 
 Retailrocket JSONL -> Replay -> Kafka/Redpanda Topics -> PostgreSQL raw + MongoDB raw
@@ -163,7 +184,7 @@ Die Batch-Pipeline in [commerce_batch_ingestion.py](src/omnichannel_platform/bat
 
 - Bereitstellung oder Erzeugung lokaler Olist-Dateien
 - Laden der Olist-Tabellen in `raw.*`
-- API-Abrufe für DummyJSON, Open-Meteo und Frankfurter
+- API-Abrufe für Open Food Facts, Open-Meteo und Frankfurter
 - Schreiben von Bronze-Artefakten unter `storage/bronze/*/_runs/<batch_id>/`
 - optionale Raw-Dokumentablage in MongoDB
 - Audit-Einträge in `raw.ingestion_audit`
@@ -313,6 +334,7 @@ Typische lokale Variablen:
 - PostgreSQL-Verbindung
 - Kafka/Redpanda-Bootstrap-Server
 - MongoDB-URI
+- Kaggle-Credentials für echte Olist-/Retailrocket-Downloads
 - BigQuery-/GCP-Platzhalter
 - Kestra- und Spark-Parameter
 
@@ -382,7 +404,7 @@ make run-quality
 
 - Olist-Snapshot-Generierung für lokale Tests
 - Laden von Orders, Items, Customers, Products, Payments
-- DummyJSON-Produktabruf mit lokalem Fallback
+- Open-Food-Facts-Produktabruf per Barcode mit lokalem Fallback
 - Open-Meteo-Wetterabruf für konfigurierte Städte
 - Frankfurter-FX-Abruf für konfigurierten Zeitraum
 - Bronze-Artefakte und Run-Manifeste
@@ -432,7 +454,7 @@ Die Rohdatenschicht bildet die operative Landefläche für normalisierte Tabelle
 - `raw.olist_products`
 - `raw.olist_order_payments`
 - `raw.retailrocket_events`
-- `raw.dummyjson_products`
+- `raw.open_food_facts_products`
 - `raw.open_meteo_weather`
 - `raw.frankfurter_fx_rates`
 
@@ -444,7 +466,7 @@ Beispiele:
 
 - [stg_olist_orders.sql](warehouse/dbt/models/staging/stg_olist_orders.sql)
 - [stg_retailrocket_events.sql](warehouse/dbt/models/staging/stg_retailrocket_events.sql)
-- [stg_dummyjson_products.sql](warehouse/dbt/models/staging/stg_dummyjson_products.sql)
+- [stg_open_food_facts_products.sql](warehouse/dbt/models/staging/stg_open_food_facts_products.sql)
 
 ### Intermediate-Schicht
 
@@ -521,6 +543,7 @@ Das GCP-Fundament unter [infra/terraform/gcp](infra/terraform/gcp) enthält aktu
 - Raw- und Processed-GCS-Buckets
 - BigQuery-Datasets für `commerce_raw`, `commerce_staging`, `commerce_marts`
 - IAM-Zuweisungen als Starter-Fundament
+- vorbereitete Zielkonfiguration für Public-Dataset-Referenzen in `US`
 
 Bewusst noch offen:
 
@@ -560,20 +583,24 @@ Der aktuelle Stand wurde bereits lokal gegen folgende Schritte geprüft:
 
 - Olist nutzt lokal generierte Seed-Daten, solange keine echten CSV-Snapshots bereitliegen
 - Retailrocket ist aktuell Replay-basiert und nicht an einen Live-Collector angebunden
+- Open Food Facts ist als echter Live-API-Pfad verdrahtet, nutzt bei temporären API-Störungen aber bewusst einen lokalen Fallback
 - MongoDB wird als Raw-Store vorbereitet, aber noch nicht mit langfristiger Retention-Strategie betrieben
 - BigQuery ist architektonisch vorbereitet, aber nicht komplett durchdeployt
+- BigQuery-Public-Datasets erfordern eine `US`-kompatible Zielplanung für direkte Warehouse-Joins
 - Kestra startet reale Entry-Points, aber noch ohne dediziertes Runtime-Image
 - einige API- und Cloud-Details sind bewusst als TODO markiert, weil dafür echte Secrets und Zielkonten nötig sind
 
 ## Nächste sinnvolle Ausbaustufen
 
-- echte Olist-Rohdaten anstelle lokaler Seeds einbinden
+- echte Olist-Rohdaten per Kaggle-Downloadpfad anstelle lokaler Seeds einbinden
+- vollständige Retailrocket-Dateien automatisiert laden und replayen
 - Replay zu einem dauerhaften Consumer-/Streaming-Job weiterentwickeln
 - inkrementelle dbt-Strategien ergänzen
 - Source Freshness und Exposures in dbt aufbauen
 - Datenqualitätsprüfungen in Orchestrierungs-Alerts integrieren
 - Streamlit- oder BI-Layer mit Kennzahlen und Session-Analysen ergänzen
 - BigQuery-Zielpfad mit echten GCP-Credentials und Remote State produktionsnäher machen
+- BigQuery-spezifische Starter-Modelle für `ga4_obfuscated_sample_ecommerce` und `thelook_ecommerce` ergänzen
 
 ## Kurzfazit
 

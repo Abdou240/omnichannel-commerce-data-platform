@@ -1,10 +1,12 @@
 dataset_group: raw.external_enrichments
 owner: data-platform
-description: Starter contract for DummyJSON products, Open-Meteo weather, and Frankfurter FX rates.
+description: Starter contract for Open Food Facts products, Open-Meteo weather, and Frankfurter FX rates.
 rules:
-  - name: product_id_not_null
-    expectation: product API payloads should contain a product identifier
+  - name: product_code_not_null
+    expectation: product API payloads should contain a product barcode or canonical product code
   - name: fx_rate_positive
     expectation: FX rates must be positive
   - name: weather_date_present
     expectation: weather enrichments must include a weather date
+  - name: open_food_facts_product_name_present
+    expectation: Open Food Facts product payloads should carry a readable product name

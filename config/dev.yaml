@@ -8,8 +8,8 @@ sources:
   retailrocket:
     bootstrap_servers: localhost:9092
     starting_offsets: earliest
-  dummyjson:
-    page_size: 30
+  open_food_facts:
+    request_delay_seconds: 1
   open_meteo:
     geographies:
       - city: sao_paulo
@@ -32,3 +32,4 @@ warehouse:
 notes:
   - "TODO: seed local PostgreSQL raw tables with Olist snapshots or staged CSV files."
   - "TODO: replace Retailrocket sample replay files with the full dataset before scale testing."
+  - "TODO: supply Kaggle credentials locally before automating real Olist or Retailrocket downloads."

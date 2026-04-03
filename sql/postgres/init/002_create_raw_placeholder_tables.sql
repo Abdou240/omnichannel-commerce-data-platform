@@ -49,12 +49,13 @@ create table if not exists raw.retailrocket_events (
     kafka_topic text
 );
 
-create table if not exists raw.dummyjson_products (
-    product_id text,
-    title text,
-    brand text,
-    category text,
-    price_usd numeric(12, 2),
+create table if not exists raw.open_food_facts_products (
+    product_code text,
+    product_name text,
+    brands text,
+    categories text,
+    image_front_url text,
+    ecoscore_grade text,
     ingested_at timestamptz
 );
 

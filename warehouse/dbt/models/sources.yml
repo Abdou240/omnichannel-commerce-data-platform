@@ -17,8 +17,8 @@ sources:
         description: Olist payment records loaded into the raw warehouse schema.
       - name: retailrocket_events
         description: Retailrocket replay events loaded from the Kafka replay foundation.
-      - name: dummyjson_products
-        description: DummyJSON product payloads normalized into raw product rows.
+      - name: open_food_facts_products
+        description: Open Food Facts product payloads normalized into raw product rows.
       - name: open_meteo_weather
         description: Open-Meteo daily weather payloads normalized into raw weather rows.
       - name: frankfurter_fx_rates

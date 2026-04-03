@@ -21,7 +21,7 @@ def test_batch_catalog_contains_external_enrichments() -> None:
     plans = build_batch_plans("dev")
     source_names = {plan.source_name for plan in plans}
 
-    assert source_names == {"olist", "dummyjson", "open_meteo", "frankfurter"}
+    assert source_names == {"olist", "open_food_facts", "open_meteo", "frankfurter"}
 
 
 def test_streaming_plan_uses_retailrocket_topics() -> None:

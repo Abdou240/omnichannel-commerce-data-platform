@@ -47,8 +47,8 @@ models:
       - name: event_type
         tests: [not_null]
 
-  - name: stg_dummyjson_products
-    description: DummyJSON API products normalized for product dimension usage.
+  - name: stg_open_food_facts_products
+    description: Open Food Facts API products normalized for product dimension usage.
     columns:
       - name: product_id
         tests: [not_null, unique]
@@ -96,7 +96,7 @@ models:
         tests: [not_null, unique]
 
   - name: dim_products
-    description: Product dimension combining Olist catalog attributes and DummyJSON enrichment products.
+    description: Product dimension combining Olist catalog attributes and Open Food Facts enrichment products.
     columns:
       - name: product_key
         tests: [not_null, unique]

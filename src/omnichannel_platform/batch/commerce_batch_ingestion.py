@@ -2,7 +2,7 @@
 
 Implemented starter flows:
   - Olist relational seed generation and PostgreSQL raw loads
-  - DummyJSON product pulls with bronze landing and optional Mongo raw docs
+  - Open Food Facts product pulls with bronze landing and optional Mongo raw docs
   - Open-Meteo weather enrichment pulls for configured Brazilian cities
   - Frankfurter FX rate pulls with bronze landing and optional Mongo raw docs
 
@@ -13,8 +13,10 @@ production-complete. Secrets, stateful watermarks, and retries remain TODOs.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import random
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -108,11 +110,19 @@ def run_artifact_dir(base_path: str, batch_id: str) -> Path:
     return landing_subdir(base_path, "_runs", batch_id)
 
 
-def request_json(url: str, *, params: dict[str, Any] | None = None) -> dict[str, Any]:
+def request_json(
+    url: str,
+    *,
+    params: dict[str, Any] | None = None,
+    headers: dict[str, str] | None = None,
+) -> dict[str, Any]:
     LOGGER.info("Requesting %s", url)
-    response: Response = requests.get(url, params=params, timeout=30)
+    response: Response = requests.get(url, params=params, headers=headers, timeout=30)
     response.raise_for_status()
-    return response.json()
+    try:
+        return response.json()
+    except ValueError as exc:
+        raise requests.RequestException(f"Expected JSON response from {url}") from exc
 
 
 def write_run_manifest(
@@ -292,90 +302,132 @@ def ingest_olist(plan: BatchSourcePlan, engine: Engine) -> int:
     return total_rows
 
 
-def load_dummyjson_fallback() -> dict[str, Any]:
-    fallback_path = Path("data/sample/batch/dummyjson_products_sample.json")
+def load_open_food_facts_fallback() -> list[dict[str, Any]]:
+    fallback_path = Path("data/sample/batch/open_food_facts_products_sample.json")
     with fallback_path.open("r", encoding="utf-8") as handle:
-        return yaml.safe_load(handle) or {}
+        payload = json.load(handle)
+    return list(payload.get("products", []))
 
 
-def ingest_dummyjson(plan: BatchSourcePlan, engine: Engine) -> int:
-    batch_id = build_batch_id("dummyjson")
+def normalize_open_food_facts_product(
+    product: dict[str, Any], ingested_at: datetime
+) -> dict[str, Any] | None:
+    product_code = str(product.get("code", "")).strip()
+    if not product_code:
+        return None
+
+    product_name = str(product.get("product_name") or product.get("generic_name") or "").strip()
+    return {
+        "product_code": product_code,
+        "product_name": product_name or "unknown",
+        "brands": str(product.get("brands") or "unknown"),
+        "categories": str(product.get("categories") or "unknown"),
+        "image_front_url": str(product.get("image_front_url") or ""),
+        "ecoscore_grade": str(product.get("ecoscore_grade") or "unknown"),
+        "ingested_at": ingested_at,
+    }
+
+
+def ingest_open_food_facts(plan: BatchSourcePlan, engine: Engine) -> int:
+    batch_id = build_batch_id("open-food-facts")
     ingested_at = utc_now()
     output_dir = run_artifact_dir(plan.landing_path, batch_id)
-    base_url = plan.details["base_url"]
-    endpoint = plan.details["endpoint"]
-    page_size = int(plan.details.get("page_size", 30))
+    base_url = plan.details["base_url"].rstrip("/")
+    endpoint_template = plan.details["endpoint_template"]
+    product_codes = [str(code) for code in plan.details.get("product_codes", [])]
+    fields = ",".join(plan.details.get("fields", []))
+    request_delay_seconds = float(plan.details.get("request_delay_seconds", 0))
+    headers = {"User-Agent": plan.details.get("user_agent", "omnichannel-platform")}
 
     flattened_rows: list[dict[str, Any]] = []
     raw_documents: list[dict[str, Any]] = []
-    skip = 0
     used_fallback = False
 
-    while True:
+    for index, product_code in enumerate(product_codes):
+        request_url = f"{base_url}{endpoint_template.format(code=product_code)}"
         try:
             payload = request_json(
-                f"{base_url}{endpoint}",
-                params={"limit": page_size, "skip": skip},
+                request_url,
+                params={"fields": fields} if fields else None,
+                headers=headers,
             )
         except requests.RequestException:
             LOGGER.warning(
-                "DummyJSON request failed, using local sample payload instead", exc_info=True
+                "Open Food Facts request failed, using local sample payload instead",
+                exc_info=True,
             )
-            payload = load_dummyjson_fallback()
             used_fallback = True
-
-        products = payload.get("products", [])
-        if not products:
             break
 
-        raw_documents.extend(
-            [
+        if payload.get("status") != 1 or "product" not in payload:
+            LOGGER.warning("Open Food Facts product not found for code=%s", product_code)
+            continue
+
+        product = payload["product"]
+        normalized = normalize_open_food_facts_product(product, ingested_at)
+        if normalized is None:
+            continue
+
+        flattened_rows.append(normalized)
+        raw_documents.append(
+            {
+                "product_code": normalized["product_code"],
+                "batch_id": batch_id,
+                "ingested_at": ingested_at.isoformat(),
+                "source_system": "open_food_facts",
+                "payload": payload,
+                "fallback": False,
+            }
+        )
+
+        if request_delay_seconds and index < len(product_codes) - 1:
+            time.sleep(request_delay_seconds)
+
+    if used_fallback:
+        flattened_rows = []
+        raw_documents = []
+        for product in load_open_food_facts_fallback():
+            normalized = normalize_open_food_facts_product(product, ingested_at)
+            if normalized is None:
+                continue
+            flattened_rows.append(normalized)
+            raw_documents.append(
                 {
-                    **product,
+                    "product_code": normalized["product_code"],
                     "batch_id": batch_id,
                     "ingested_at": ingested_at.isoformat(),
-                    "source_system": "dummyjson",
-                    "fallback": used_fallback,
+                    "source_system": "open_food_facts",
+                    "payload": product,
+                    "fallback": True,
                 }
-                for product in products
-            ]
-        )
-        flattened_rows.extend(
-            [
-                {
-                    "product_id": str(product["id"]),
-                    "title": product["title"],
-                    "brand": product.get("brand", "unknown"),
-                    "category": product.get("category", "unknown"),
-                    "price_usd": float(product["price"]),
-                    "ingested_at": ingested_at,
-                }
-                for product in products
-            ]
-        )
-
-        skip += page_size
-        if used_fallback or skip >= payload.get("total", len(products)):
-            break
+            )
 
     write_jsonl(output_dir / "products_raw.jsonl", raw_documents)
     write_run_manifest(
         output_dir,
-        source_name="dummyjson",
+        source_name="open_food_facts",
         batch_id=batch_id,
         row_count=len(flattened_rows),
-        metadata={"page_size": page_size, "fallback": used_fallback},
+        metadata={"product_codes": product_codes, "fallback": used_fallback},
     )
     insert_many_documents(
-        mongo_database_name(), plan.raw_collection or "dummyjson_products_raw", raw_documents
+        mongo_database_name(), plan.raw_collection or "open_food_facts_products_raw", raw_documents
     )
 
     dataframe = pd.DataFrame(
         flattened_rows,
-        columns=["product_id", "title", "brand", "category", "price_usd", "ingested_at"],
+        columns=[
+            "product_code",
+            "product_name",
+            "brands",
+            "categories",
+            "image_front_url",
+            "ecoscore_grade",
+            "ingested_at",
+        ],
     )
-    loaded_rows = load_dataframe(engine, "dummyjson_products", dataframe)
-    audit_batch(engine, "dummyjson", batch_id, loaded_rows)
+    loaded_rows = load_dataframe(engine, "open_food_facts_products", dataframe)
+    audit_batch(engine, "open_food_facts", batch_id, loaded_rows)
     return loaded_rows
 
 
@@ -595,7 +647,7 @@ def ingest_frankfurter(plan: BatchSourcePlan, engine: Engine) -> int:
 
 INGESTORS = {
     "olist": ingest_olist,
-    "dummyjson": ingest_dummyjson,
+    "open_food_facts": ingest_open_food_facts,
     "open_meteo": ingest_open_meteo,
     "frankfurter": ingest_frankfurter,
 }
@@ -626,7 +678,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--source",
         default="all",
-        choices=["all", "olist", "dummyjson", "open_meteo", "frankfurter"],
+        choices=["all", "olist", "open_food_facts", "open_meteo", "frankfurter"],
         help="Limit ingestion to a single source.",
     )
     return parser.parse_args()

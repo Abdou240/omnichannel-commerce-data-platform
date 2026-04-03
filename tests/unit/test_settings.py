@@ -15,3 +15,7 @@ def test_load_settings_reads_environment_override() -> None:
 
     assert settings["runtime"]["environment"] == "dev"
     assert settings["sources"]["retailrocket"]["raw_topic"] == "retailrocket.events.raw"
+    assert settings["sources"]["open_food_facts"]["provider"] == "open-food-facts"
+    assert settings["warehouse"]["cloud"]["public_datasets"]["ga4_sample_ecommerce"]["dataset"] == (
+        "ga4_obfuscated_sample_ecommerce"
+    )

@@ -2,28 +2,33 @@
 
 ## Scope
 
-This repository models a local-first Omnichannel Commerce platform with:
+Dieses Repository modelliert eine lokal lauffähige Omnichannel-Commerce-Plattform mit realen oder
+realitätsnah eingebundenen Quellen:
 
-- Olist batch commerce data
-- Retailrocket clickstream replay
-- DummyJSON product enrichment
-- Open-Meteo weather enrichment
-- Frankfurter FX normalization
-- MongoDB raw document storage
-- PostgreSQL local raw warehouse
-- BigQuery as the cloud warehouse target
+- Olist für relationale Commerce-Batchdaten
+- Retailrocket für Clickstream-Replay
+- Open Food Facts für echte Produkt-JSON-Dokumente
+- Open-Meteo für Wetter-Enrichment
+- Frankfurter für FX-Normalisierung
+- MongoDB als Raw-Document-Store
+- PostgreSQL als lokales Raw- und Warehouse-Ziel
+- BigQuery als Cloud-Ziel inklusive öffentlicher Referenzdatensätze
 
 ## End-to-End Flow
 
 ```text
-Olist CSVs / seeds -----------------------------+
-DummyJSON API ----------------------------------+--> bronze files + Mongo raw --> PostgreSQL raw
+Olist CSVs / Seeds -----------------------------+
+Open Food Facts Product API --------------------+--> bronze files + Mongo raw --> PostgreSQL raw
 Open-Meteo API ---------------------------------+
 Frankfurter API --------------------------------+
 
 Retailrocket replay file --> Kafka topics ------+--> PostgreSQL raw + Mongo raw
 
 PostgreSQL raw --> dbt staging --> dbt intermediate --> dbt marts --> BigQuery target
+                                                            |
+                                                            +--> spätere BigQuery-Referenzpfade:
+                                                                 - bigquery-public-data.ga4_obfuscated_sample_ecommerce
+                                                                 - bigquery-public-data.thelook_ecommerce
 ```
 
 ## Raw Layer
@@ -36,7 +41,7 @@ PostgreSQL raw --> dbt staging --> dbt intermediate --> dbt marts --> BigQuery t
 - `raw.olist_products`
 - `raw.olist_order_payments`
 - `raw.retailrocket_events`
-- `raw.dummyjson_products`
+- `raw.open_food_facts_products`
 - `raw.open_meteo_weather`
 - `raw.frankfurter_fx_rates`
 - `raw.ingestion_audit`
@@ -44,99 +49,112 @@ PostgreSQL raw --> dbt staging --> dbt intermediate --> dbt marts --> BigQuery t
 ### MongoDB raw collections
 
 - `retailrocket_events_raw`
-- `dummyjson_products_raw`
+- `open_food_facts_products_raw`
 - `open_meteo_weather_raw`
 - `frankfurter_fx_raw`
 
-MongoDB is used as a raw document store for JSON payload inspection and flexible replay traces.
+MongoDB dient hier als Raw-Document-Store für JSON-Payload-Inspektion, Replay-Spuren und flexible
+Fehleranalyse.
 
 ## Staging Layer
 
-The dbt staging layer normalizes source-specific structures:
+Die dbt-Staging-Schicht normalisiert quellspezifische Strukturen:
 
 - Olist orders, items, customers, products, payments
 - Retailrocket events
-- DummyJSON products
+- Open Food Facts products
 - Open-Meteo weather
 - Frankfurter FX rates
 
-Each staging model is source-aware and compiles safely even when local raw tables are not present yet.
+Jedes Staging-Modell ist source-aware und kompiliert sauber weiter, auch wenn lokal noch nicht alle
+Raw-Tabellen vorhanden sind.
 
 ## Intermediate Layer
 
 ### `int_orders_with_context`
 
-Starter order-grain enrichment that joins:
+Starter-Order-Modell auf Grain `order_id` mit:
 
 - Olist order headers
 - Olist item aggregates
 - Olist customer geography
-- Olist product attributes
-- weather by order date and customer city
-- FX by order date
+- Wetterkontext auf Kaufdatum und Stadt
+- FX-Kontext auf Kaufdatum
 
 ### `int_retailrocket_sessions`
 
-Starter clickstream sessionization that groups events by `visitor_id` and a 30-minute inactivity gap.
+Starter-Sessionisierung für Clickstream-Ereignisse mit `visitor_id` und 30 Minuten
+Inaktivitätslücke.
 
 ## Mart Layer
 
 ### `fct_commerce_orders`
 
-Starter order-grain fact model with:
+Starter-Faktmodell für Commerce-Bestellungen mit:
 
-- order timing and status
-- customer geography
-- item and payment metrics
-- weather context
-- FX normalization helper
+- Bestellstatus und Kaufzeitpunkten
+- Kundengeografie
+- Artikel- und Payment-Kennzahlen
+- Wetter- und FX-Kontext
 
 ### `fct_retailrocket_sessions`
 
-Starter session-grain fact model with:
+Starter-Faktmodell für Sessions mit:
 
-- session boundaries
-- event counts by type
-- sample item identifier
+- Session-Grenzen
+- Event-Anzahlen nach Typ
+- Beispiel-Item-Bezug
 
 ### `dim_products`
 
-Starter product dimension combining:
+Starter-Produktdimension mit zwei klar getrennten Quellen:
 
-- Olist product attributes
-- DummyJSON API products
+- Olist-Produktattribute
+- Open-Food-Facts-Produktstammdaten
 
-The two source systems remain logically distinct through `product_key` and `source_system`.
+Die beiden Systeme bleiben über `product_key` und `source_system` logisch getrennt. Ein echtes
+SKU-Matching zwischen Olist und Open Food Facts ist bewusst noch nicht implementiert.
+
+## BigQuery Public References
+
+Für die Cloud-Zielarchitektur sind zwei echte öffentliche BigQuery-Referenzen vorgesehen:
+
+- `bigquery-public-data.ga4_obfuscated_sample_ecommerce`
+- `bigquery-public-data.thelook_ecommerce`
+
+Wichtig: Diese Public Datasets liegen in der Regel in der `US` Multi-Region. Eigene BigQuery-Targets
+für direkte Joins oder Ableitungen sollten deshalb ebenfalls in `US` geplant werden.
 
 ## Orchestration
 
-Kestra orchestrates the local starter flow:
+Kestra orchestriert aktuell den lokalen Starter-Ablauf:
 
-1. batch ingestion
-2. Retailrocket replay
-3. warehouse layer planning
-4. quality execution
+1. Batch-Ingestion
+2. Retailrocket-Replay
+3. Warehouse-Layer-Planung
+4. Quality-Ausführung
 
-The flow is intentionally shell-based until a dedicated runtime image is introduced.
+Der Flow bleibt bewusst shell-basiert, bis ein dediziertes Runtime-Image mit Python- und dbt-Stack
+eingeführt wird.
 
 ## Quality
 
-Quality foundations combine:
+Die Quality-Basis kombiniert:
 
-- YAML contracts under `quality/contracts/`
-- SQL expectations under `quality/expectations/`
-- dbt model tests and singular tests
+- YAML-Verträge unter `quality/contracts/`
+- SQL-Erwartungen unter `quality/expectations/`
+- dbt-Modelltests und Singular Tests
 
-The Python quality runner executes SQL expectations against PostgreSQL and writes reports to:
+Der Python-Runner führt SQL-Erwartungen gegen PostgreSQL aus und schreibt Reports nach:
 
 - `storage/checkpoints/quality/last_run.json`
 
 ## Cloud Foundation
 
-Terraform currently provisions starter GCP resources for:
+Terraform provisioniert aktuell Starter-Ressourcen in GCP für:
 
-- raw and processed GCS buckets
-- BigQuery datasets for raw, staging, and marts
-- a platform service account and IAM bindings
+- Raw- und Processed-GCS-Buckets
+- BigQuery-Datasets für raw, staging und marts
+- ein Plattform-Service-Konto inklusive IAM-Bindings
 
-Secrets, API enablement, remote state, and environment promotion remain TODOs.
+Secrets, API-Aktivierung, Remote State und Umgebungs-Promotion bleiben weiterhin TODOs.

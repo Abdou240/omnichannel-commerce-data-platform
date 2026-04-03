@@ -8,22 +8,26 @@ with olist_products as (
         cast(null as {{ dbt.type_string() }}) as brand,
         product_category_name as category,
         cast(null as numeric(12, 2)) as price_usd,
+        cast(null as {{ dbt.type_string() }}) as ecoscore_grade,
+        cast(null as {{ dbt.type_string() }}) as image_front_url,
         cast('olist' as {{ dbt.type_string() }}) as source_system
     from {{ ref('stg_olist_products') }}
 ),
 
-dummyjson_products as (
+open_food_facts_products as (
     select
-        'dummyjson:' || product_id as product_key,
+        'open_food_facts:' || product_id as product_key,
         product_id,
         product_name,
         brand,
         category,
-        price_usd,
-        cast('dummyjson' as {{ dbt.type_string() }}) as source_system
-    from {{ ref('stg_dummyjson_products') }}
+        cast(null as numeric(12, 2)) as price_usd,
+        ecoscore_grade,
+        image_front_url,
+        cast('open_food_facts' as {{ dbt.type_string() }}) as source_system
+    from {{ ref('stg_open_food_facts_products') }}
 )
 
 select * from olist_products
 union all
-select * from dummyjson_products
+select * from open_food_facts_products
