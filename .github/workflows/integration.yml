@@ -1,0 +1,105 @@
+name: integration
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  full-ci:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: commerce_platform
+          POSTGRES_USER: commerce
+          POSTGRES_PASSWORD: commerce
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U commerce -d commerce_platform"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: commerce_platform
+      POSTGRES_USER: commerce
+      POSTGRES_PASSWORD: commerce
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install project dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev,batch,streaming,quality,warehouse]"
+
+      - name: Initialize raw schemas
+        run: |
+          PGPASSWORD=commerce psql -h localhost -U commerce -d commerce_platform \
+            -f sql/postgres/init/001_create_local_warehouse_schemas.sql \
+            -f sql/postgres/init/002_create_raw_placeholder_tables.sql
+
+      - name: Run lint
+        run: ruff check .
+
+      - name: Run unit tests
+        run: pytest tests/ -v
+
+      - name: Run batch ingestion (Olist seeds only)
+        run: python -m omnichannel_platform.batch.commerce_batch_ingestion --env dev --source olist
+
+      - name: Verify Olist raw data loaded
+        run: |
+          PGPASSWORD=commerce psql -h localhost -U commerce -d commerce_platform -c "
+            SELECT source_name, row_count FROM raw.ingestion_audit WHERE source_name = 'olist';
+          " | grep -q olist
+
+      - name: Run streaming replay
+        run: python -m omnichannel_platform.streaming.clickstream_consumer --env dev --mode replay
+
+      - name: Verify replay events loaded
+        run: |
+          PGPASSWORD=commerce psql -h localhost -U commerce -d commerce_platform -c "
+            SELECT count(*) as cnt FROM raw.retailrocket_events;
+          " | grep -qE "[1-9]"
+
+      - name: Run quality checks (non-strict)
+        run: python -m omnichannel_platform.quality.rules_catalog --non-strict
+
+      - name: Build dbt project against PostgreSQL
+        run: |
+          mkdir -p /tmp/dbt-profiles
+          cat > /tmp/dbt-profiles/profiles.yml << 'PROFILES'
+          omnichannel_platform:
+            target: ci-pg
+            outputs:
+              ci-pg:
+                type: postgres
+                host: localhost
+                user: commerce
+                password: commerce
+                port: 5432
+                dbname: commerce_platform
+                schema: staging
+                threads: 4
+          PROFILES
+          dbt build --project-dir warehouse/dbt --profiles-dir /tmp/dbt-profiles --target ci-pg
+
+      - name: Verify mart tables populated
+        run: |
+          PGPASSWORD=commerce psql -h localhost -U commerce -d commerce_platform -c "
+            SELECT count(*) as cnt FROM staging.fct_commerce_orders;
+          " | grep -qE "[1-9]"

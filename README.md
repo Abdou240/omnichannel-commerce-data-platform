@@ -1,15 +1,17 @@
 # omnichannel-commerce-data-platform
 
-Ein praxisnahes Portfolio-Projekt für Data Engineering rund um eine Omnichannel-Commerce-Plattform.
+Ein praxisnahes Portfolio-Projekt fuer Data Engineering rund um eine Omnichannel-Commerce-Plattform.
 
-Dieses Repository modelliert einen realistischen End-to-End-Stack für Batch-, Streaming-,
-Warehouse-, Qualitäts- und Orchestrierungs-Workloads. Der Fokus liegt bewusst auf einer sauberen,
+Dieses Repository modelliert einen realistischen End-to-End-Stack fuer Batch-, Streaming-,
+Warehouse-, Qualitaets- und Orchestrierungs-Workloads. Der Fokus liegt bewusst auf einer sauberen,
 erweiterbaren Plattformstruktur, auf ehrlichen Starter-Implementierungen und auf einer
-repo-tauglichen Darstellung für Recruiter, Hiring Manager und technische Reviewer.
+repo-tauglichen Darstellung fuer Recruiter, Hiring Manager und technische Reviewer.
 
-Das Projekt ist kein künstlich „fertig simulierter“ Showcase. Stattdessen gibt es funktionierende
-Starter-Pipelines, echte Ausführungspfade, saubere TODO-Grenzen und eine klare Trennung zwischen
-lokalem Entwicklungs-Setup und späterer Cloud-Zielarchitektur.
+Das Projekt ist kein kuenstlich "fertig simulierter" Showcase. Stattdessen gibt es funktionierende
+Starter-Pipelines, echte Ausfuehrungspfade, saubere TODO-Grenzen und eine klare Trennung zwischen
+lokalem Entwicklungs-Setup und spaeterer Cloud-Zielarchitektur.
+
+---
 
 ## Inhaltsverzeichnis
 
@@ -21,28 +23,32 @@ lokalem Entwicklungs-Setup und späterer Cloud-Zielarchitektur.
 - [Technologiestack](#technologiestack)
 - [Repository-Struktur](#repository-struktur)
 - [Lokales Setup](#lokales-setup)
+- [Schritt-fuer-Schritt Testanleitung](#schritt-fuer-schritt-testanleitung)
 - [Zentrale Make-Targets](#zentrale-make-targets)
 - [Was aktuell implementiert ist](#was-aktuell-implementiert-ist)
 - [Warehouse- und dbt-Modellierung](#warehouse--und-dbt-modellierung)
-- [Datenqualität](#datenqualität)
+- [Datenqualitaet](#datenqualitaet)
 - [Orchestrierung mit Kestra](#orchestrierung-mit-kestra)
 - [Spark-Pfad](#spark-pfad)
 - [GCP- und Terraform-Fundament](#gcp--und-terraform-fundament)
+- [CI/CD-Pipeline](#cicd-pipeline)
 - [Validierung und Entwicklung](#validierung-und-entwicklung)
 - [Aktuelle Grenzen](#aktuelle-grenzen)
-- [Nächste sinnvolle Ausbaustufen](#nächste-sinnvolle-ausbaustufen)
+- [Naechste sinnvolle Ausbaustufen](#naechste-sinnvolle-ausbaustufen)
+
+---
 
 ## Projektziel
 
 Die Plattform soll ein realistisches Omnichannel-Commerce-Szenario abbilden:
 
 - relationale Commerce-Daten im Batch-Stil ingestieren
-- Clickstream-Ereignisse über Kafka-kompatible Topics replayen
+- Clickstream-Ereignisse ueber Kafka-kompatible Topics replayen
 - externe Referenz- und Enrichment-Daten einbinden
-- Rohdaten in ein lokales Warehouse überführen
+- Rohdaten in ein lokales Warehouse ueberfuehren
 - dbt-Modelle von `raw -> staging -> intermediate -> marts` aufbauen
-- Datenqualitätsregeln dokumentieren und ausführbar machen
-- eine klare Cloud-Zielarchitektur für BigQuery und GCP vorbereiten
+- Datenqualitaetsregeln dokumentieren und ausfuehrbar machen
+- eine klare Cloud-Zielarchitektur fuer BigQuery und GCP vorbereiten
 
 Das Repository soll zeigen, dass nicht nur SQL oder Python beherrscht wird, sondern dass ein
 Data-Engineering-Projekt als Plattform gedacht, strukturiert, dokumentiert und weiterentwickelt
@@ -50,17 +56,14 @@ werden kann.
 
 ## Fachlicher Umfang
 
-Im Mittelpunkt steht eine Omnichannel-Commerce-Domäne mit mehreren fachlichen Perspektiven:
+Im Mittelpunkt steht eine Omnichannel-Commerce-Domaene mit mehreren fachlichen Perspektiven:
 
 - Bestellungen und Bestellpositionen
 - Produkte und Produktattribute
 - Kunden- und Standortkontext
 - Klick- und Session-Verhalten
-- Wetterkontext für Nachfrage- oder Aktivitätsmuster
-- Währungsumrechnung für vergleichbare Kennzahlen
-
-Die fachliche Idee ist bewusst breit genug, um Batch, Streaming, Referenzdaten, Modellierung,
-Qualität und Cloud-Bausteine sinnvoll in einem gemeinsamen Projekt zu verbinden.
+- Wetterkontext fuer Nachfrage- oder Aktivitaetsmuster
+- Waehrungsumrechnung fuer vergleichbare Kennzahlen
 
 ## Datenquellen
 
@@ -68,52 +71,44 @@ Qualität und Cloud-Bausteine sinnvoll in einem gemeinsamen Projekt zu verbinden
 
 Batch-orientierte relationale Commerce-Daten auf CSV-Basis:
 
-- Orders
-- Order Items
-- Customers
-- Products
-- Payments
+- Orders, Order Items, Customers, Products, Payments
 
 Im lokalen Setup werden deterministische Seed-Dateien erzeugt, wenn keine echten CSV-Snapshots
-bereitgestellt wurden. Dadurch bleibt der Batch-Pfad lauffähig, ohne einen „Fake-Production“-Eindruck
+bereitgestellt wurden. Dadurch bleibt der Batch-Pfad lauffaehig, ohne einen "Fake-Production"-Eindruck
 zu erzeugen.
 
-Die Zielquelle ist das reale Kaggle-Dataset `olistbr/brazilian-ecommerce`. Für einen echten Download-
-Pfad sind Kaggle-Credentials nötig; bis dahin bleibt die Seed-Strategie der lauffähige Fallback.
+Die Zielquelle ist das reale Kaggle-Dataset `olistbr/brazilian-ecommerce`. Fuer einen echten Download-
+Pfad sind Kaggle-Credentials noetig; bis dahin bleibt die Seed-Strategie der lauffaehige Fallback.
 
 ### Retailrocket
 
-Clickstream-/Event-Daten für Replay-Szenarien:
+Clickstream-/Event-Daten fuer Replay-Szenarien:
 
-- `view`
-- `addtocart`
-- `transaction`
+- `view`, `addtocart`, `transaction`
 
 Die Events werden im Starter-Setup aus einer JSONL-Datei gelesen, normalisiert, auf Kafka-Topics
-geroutet und zusätzlich in der Raw-Schicht persistiert.
-
-Die Zielquelle ist das reale Kaggle-Dataset `retailrocket/ecommerce-dataset`. Lokal bleibt das Repo
-absichtlich replay-orientiert, bis vollständige Event-Dateien automatisiert bereitgestellt werden.
+geroutet und zusaetzlich in der Raw-Schicht persistiert.
 
 ### Open Food Facts
 
-Echte Produkt-API für JSON-basierte Produktstammdaten.
-
-Im aktuellen Starter ruft die Batch-Pipeline konkrete Produkt-Barcodes über die Produkt-API ab.
-Das ist robuster als ein freier Such-Endpoint und bildet trotzdem echte Live-Daten ab. Wenn die API
-temporär nicht verfügbar ist, fällt die Pipeline auf ein kleines lokales Sample zurück.
+Echte Produkt-API fuer JSON-basierte Produktstammdaten. Im aktuellen Starter ruft die Batch-Pipeline
+konkrete Produkt-Barcodes ueber die Open Food Facts API ab. Das ist robuster als ein freier
+Such-Endpoint und bildet trotzdem echte Live-Daten ab. Bei temporaerer API-Stoerung faellt die
+Pipeline auf ein lokales Sample zurueck.
 
 ### Open-Meteo
 
-Wetter-Enrichment auf Tagesebene für ausgewählte brasilianische Städte.
+Wetter-Enrichment auf Tagesebene fuer ausgewaehlte brasilianische Staedte (Sao Paulo, Rio de Janeiro,
+Belo Horizonte).
 
 ### Frankfurter API
 
-FX-Raten zur späteren Umrechnung von Beträgen und zur Vergleichbarkeit von Commerce-Metriken.
+FX-Raten (EUR -> USD, EUR -> BRL) zur spaeten Umrechnung von Betraegen und zur Vergleichbarkeit
+von Commerce-Metriken.
 
 ### MongoDB
 
-Raw-Document-Store für JSON-Payloads und Replay-Artefakte.
+Raw-Document-Store fuer JSON-Payloads und Replay-Artefakte.
 
 ### PostgreSQL lokal und BigQuery als Zielarchitektur
 
@@ -121,190 +116,207 @@ Raw-Document-Store für JSON-Payloads und Replay-Artefakte.
 - BigQuery ist als Cloud-Warehouse-Ziel in dbt- und Terraform-Struktur vorbereitet
 - als reale Public-Reference-Sets sind `ga4_obfuscated_sample_ecommerce` und `thelook_ecommerce`
   vorgesehen
-- wichtig: diese Public Datasets liegen in der `US` Multi-Region, daher sollten spätere direkte
-  BigQuery-Joins ebenfalls in `US` geplant werden
+- wichtig: diese Public Datasets liegen in der `US` Multi-Region
+
+---
 
 ## Architektur auf einen Blick
 
 ```text
-                          +----------------------+
-                          |     Olist CSVs       |
-                          |  (oder lokale Seeds) |
-                          +----------+-----------+
-                                     |
-                                     v
-                         +-------------------------+
-                         |   Batch Ingestion       |
-                         |   Python + PostgreSQL   |
-                         +------------+------------+
-                                      |
-             +------------------------+------------------------+
-             |                        |                        |
-             v                        v                        v
-   +------------------+    +------------------+    +------------------+
-   | Open Food Facts  |    | Open-Meteo API   |    | Frankfurter API  |
-   | Product API      |    |                  |    |                  |
-   +------------------+    +------------------+    +------------------+
-             \                    |                         /
-              \                   |                        /
-               +------------------+-----------------------+
-                                  |
-                                  v
-                    storage/bronze + MongoDB raw documents
-                                  |
-                                  v
-                           PostgreSQL raw layer
-                                  |
-                                  v
-                        dbt staging / intermediate
-                                  |
-                                  v
-                       dbt marts
-                                  |
-                                  v
-                       BigQuery als Zielarchitektur
++---------------------------------------------------------------------+
+|                        DATENQUELLEN                                 |
++---------------------------------------------------------------------+
+|                                                                     |
+|  Olist CSVs/Seeds    Open Food Facts    Open-Meteo    Frankfurter   |
+|  (Batch relational)  (Product API)      (Weather)     (FX Rates)    |
+|         |                  |                |              |         |
+|         +------------------+----------------+--------------+         |
+|                            |                                        |
+|  Retailrocket JSONL -----> | Kafka/Redpanda Topics                  |
+|  (Clickstream Replay)      |                                        |
++----------------------------+----------------------------------------+
+                             |
+                             v
++---------------------------------------------------------------------+
+|                      RAW / BRONZE LAYER                             |
++---------------------------------------------------------------------+
+|                                                                     |
+|  storage/bronze/*          PostgreSQL raw.*       MongoDB            |
+|  (Dateiartefakte)          (9 Tabellen)           (4 Collections)   |
+|  - Olist CSVs              - olist_orders         - retailrocket    |
+|  - API JSON responses      - olist_order_items      _events_raw     |
+|  - Run-Manifeste           - olist_customers      - open_food_facts |
+|                            - olist_products         _products_raw   |
+|                            - olist_order_payments - open_meteo      |
+|                            - retailrocket_events    _weather_raw    |
+|                            - open_food_facts      - frankfurter     |
+|                              _products              _fx_raw         |
+|                            - open_meteo_weather                     |
+|                            - frankfurter_fx_rates                   |
+|                            - ingestion_audit                        |
++---------------------------------------------------------------------+
+                             |
+                             v
++---------------------------------------------------------------------+
+|                   dbt TRANSFORMATION LAYER                          |
++---------------------------------------------------------------------+
+|                                                                     |
+|  STAGING (Views)            INTERMEDIATE (Views)    MARTS (Tables)  |
+|  - stg_olist_orders         - int_orders_with       - fct_commerce  |
+|  - stg_olist_order_items      _context                _orders       |
+|  - stg_olist_customers      - int_retailrocket      - fct_retail    |
+|  - stg_olist_products         _sessions               rocket       |
+|  - stg_olist_order_payments                           _sessions     |
+|  - stg_retailrocket_events                          - dim_products  |
+|  - stg_open_food_facts                                              |
+|    _products                                                        |
+|  - stg_open_meteo_weather                                           |
+|  - stg_frankfurter_fx_rates                                         |
++---------------------------------------------------------------------+
+                             |
+                             v
++---------------------------------------------------------------------+
+|                    ZIELARCHITEKTUR                                   |
++---------------------------------------------------------------------+
+|                                                                     |
+|  BigQuery (commerce_raw / commerce_staging / commerce_marts)        |
+|  GCS Buckets (Raw + Processed)                                      |
+|  Terraform-provisioniert                                            |
+|                                                                     |
+|  Public BigQuery Referenzen:                                        |
+|  - bigquery-public-data.ga4_obfuscated_sample_ecommerce             |
+|  - bigquery-public-data.thelook_ecommerce                           |
++---------------------------------------------------------------------+
 
-                    +----------------------------------+
-                    | Public BigQuery Referenzen       |
-                    | ga4_obfuscated_sample_ecommerce  |
-                    | thelook_ecommerce                |
-                    +----------------------------------+
-
-
-Retailrocket JSONL -> Replay -> Kafka/Redpanda Topics -> PostgreSQL raw + MongoDB raw
++---------------------------------------------------------------------+
+|                    QUERSCHNITTSFUNKTIONEN                           |
++---------------------------------------------------------------------+
+|                                                                     |
+|  Orchestrierung: Kestra v1.1 (daily_platform_ingestion)             |
+|  Streaming:      Redpanda v25.3.9 (Kafka-kompatibel)               |
+|  Spark:          Clickstream Sessionisierung (PySpark)              |
+|  Qualitaet:      SQL-Expectations + dbt-Tests + Quality-Runner      |
+|  CI/CD:          GitHub Actions (lint, pytest, dbt build)           |
+|  IaC:            Terraform (Google Provider 5.6.0)                  |
++---------------------------------------------------------------------+
 ```
 
-Eine ergänzende Architekturübersicht liegt in [docs/architecture.md](docs/architecture.md).
+Eine ergaenzende Architekturuebersicht liegt in [docs/architecture.md](docs/architecture.md).
+
+---
 
 ## Datenfluss im Detail
 
 ### 1. Batch-Ingestion
 
-Die Batch-Pipeline in [commerce_batch_ingestion.py](src/omnichannel_platform/batch/commerce_batch_ingestion.py) übernimmt:
+Die Batch-Pipeline in [commerce_batch_ingestion.py](src/omnichannel_platform/batch/commerce_batch_ingestion.py) uebernimmt:
 
-- Bereitstellung oder Erzeugung lokaler Olist-Dateien
-- Laden der Olist-Tabellen in `raw.*`
-- API-Abrufe für Open Food Facts, Open-Meteo und Frankfurter
+- Bereitstellung oder Erzeugung lokaler Olist-Seed-Dateien (500 Orders, 250 Customers, 150 Products)
+- Laden aller 5 Olist-Tabellen in `raw.*`
+- API-Abrufe fuer Open Food Facts (per Barcode), Open-Meteo (365 Tage, 3 Staedte) und Frankfurter (FX-Jahresraten)
 - Schreiben von Bronze-Artefakten unter `storage/bronze/*/_runs/<batch_id>/`
 - optionale Raw-Dokumentablage in MongoDB
-- Audit-Einträge in `raw.ingestion_audit`
-
-Die Implementierung ist bewusst minimal, aber nicht nur symbolisch. Sie besitzt echte Ausführungspfade,
-arbeitet mit Config-Dateien, erzeugt Artefakte und trennt zwischen strukturierten Tabellendaten und
-ungeschnittenen Raw-Dokumenten.
+- Audit-Eintraege in `raw.ingestion_audit`
 
 ### 2. Streaming-Replay
 
-Die Streaming-Pipeline in [clickstream_consumer.py](src/omnichannel_platform/streaming/clickstream_consumer.py) übernimmt:
+Die Streaming-Pipeline in [clickstream_consumer.py](src/omnichannel_platform/streaming/clickstream_consumer.py) uebernimmt:
 
 - Lesen von Retailrocket-Events aus `data/sample/streaming/retailrocket_events.jsonl`
-- Normalisierung der Event-Struktur
-- Routing auf fachliche Topics
+- Normalisierung der Event-Struktur (Lowercasing, String-Casting, Topic-Routing)
 - Publizieren auf Kafka/Redpanda, sofern ein Broker erreichbar ist
-- Persistenz in `raw.retailrocket_events`
+- Persistenz in `raw.retailrocket_events` (PostgreSQL)
 - optionales Ablegen der Replay-Dokumente in MongoDB
 - Schreiben eines Replay-Checkpoints unter `storage/checkpoints/retailrocket/`
-
-Damit ist ein realistischer Starter für Event-Replay, Routing und Raw-Landing vorhanden, ohne bereits
-eine vollständige produktive Streaming-Infrastruktur vorzutäuschen.
 
 ### 3. Transformation im Warehouse
 
 Die dbt-Modelle bilden aktuell drei Schichten:
 
-- `staging`: Normalisierung der Rohdaten
-- `intermediate`: Zusammenführung, Kontextanreicherung, Sessionisierung
-- `marts`: fachlich lesbare Fakt- und Dimensionsmodelle
+- **staging**: Normalisierung der Rohdaten mit source-aware Fallbacks (leere Relationen wenn Raw-Tabellen fehlen)
+- **intermediate**: `int_orders_with_context` (Orders + Kunden + Items + Payments + Wetter + FX), `int_retailrocket_sessions` (30-Min-Gap-Sessionisierung)
+- **marts**: `fct_commerce_orders`, `fct_retailrocket_sessions`, `dim_products` (Olist + Open Food Facts kombiniert)
 
-Besonders wichtig: Die Modelle sind source-aware. Wenn lokale Raw-Tabellen noch nicht vorhanden sind,
-kompilieren sie trotzdem sicher mit leeren Fallback-Relationen. So bleiben CI und lokales `dbt build`
-stabil, auch wenn nicht immer alle Quellen geladen wurden.
+### 4. Datenqualitaet
 
-### 4. Datenqualität
+Die Datenqualitaetslogik kombiniert:
 
-Die Datenqualitätslogik kombiniert:
-
-- deklarative Verträge unter `quality/contracts/`
+- deklarative Vertraege unter `quality/contracts/`
 - SQL-Erwartungen unter `quality/expectations/`
 - dbt-Tests auf Modell- und Spaltenebene
-- einen Python-Runner in [rules_catalog.py](src/omnichannel_platform/quality/rules_catalog.py)
+- einen Python-Runner in [rules_catalog.py](src/omnichannel_platform/quality/rules_catalog.py) mit Report-Ausgabe
 
-Das Ziel ist eine klare Trennung zwischen:
-
-- dokumentierten Qualitätsanforderungen
-- technisch ausführbaren Checks
-- Warehouse-naher Validierung
+---
 
 ## Technologiestack
 
-### Datenverarbeitung
+| Kategorie | Technologie | Version |
+|---|---|---|
+| Datenbank (lokal) | PostgreSQL | 18 |
+| Streaming Broker | Redpanda | v25.3.9 |
+| Document Store | MongoDB | 7 |
+| Object Storage (lokal) | MinIO | latest |
+| Orchestrierung | Kestra | v1.1 |
+| Transformation | dbt | >=1.9 |
+| Batch Processing | Spark / PySpark | >=3.5 |
+| IaC | Terraform (Google Provider) | 5.6.0 |
+| Cloud Warehouse | BigQuery | (Zielarchitektur) |
+| Cloud Storage | GCS | (Zielarchitektur) |
+| Python | Python | >=3.11 |
+| Build Tool | uv / pip | latest |
+| Linting | ruff | >=0.6 |
+| Testing | pytest | >=8.0 |
+| CI/CD | GitHub Actions | 3 Workflows |
 
-- Python 3.11+
-- pandas
-- requests
-- SQLAlchemy
-- psycopg
-
-### Streaming
-
-- Redpanda als Kafka-kompatibler lokaler Broker
-- kafka-python-ng für Producer/Replay-Grundlagen
-
-### Speicher und Warehouse
-
-- PostgreSQL lokal
-- MongoDB für Raw-JSON/Event-Dokumente
-- BigQuery als Zielarchitektur
-- MinIO als lokaler Object-Storage-Baustein
-
-### Transformation und Qualität
-
-- dbt
-- pytest
-- ruff
-- pre-commit
-
-### Orchestrierung und Infrastruktur
-
-- Kestra
-- Terraform für GCP
-- Docker Compose für den lokalen Plattform-Stack
-
-### Verteilte Verarbeitung
-
-- Spark für den Sessionisierungs-Pfad
+---
 
 ## Repository-Struktur
 
 ```text
 .
-├── config/                              # Basis-, Dev- und Prod-Konfiguration
-├── data/sample/                         # Kleine lokale Beispiel- und Replay-Daten
-├── docs/                                # Architektur, ADRs, Runbooks
-├── infra/terraform/gcp/                 # GCP-Grundgerüst für Buckets, Datasets, IAM
-├── kafka/                               # Topic-Katalog und Topic-Bootstrap
-├── orchestration/kestra/                # Kestra-Flows und Namespace-Artefakte
-├── quality/                             # Verträge, SQL-Checks, spätere Monitore
-├── spark/                               # Spark-Konfiguration und Jobs
-├── sql/postgres/init/                   # Lokale Warehouse- und Raw-Initialisierung
+├── .github/workflows/              # CI: lint, pytest, dbt-checks
+├── config/                          # Basis-, Dev- und Prod-Konfiguration
+│   ├── base.yaml                    # Alle Quellen, Warehouse, Orchestrierung
+│   ├── dev.yaml                     # Lokale Overrides (Kafka, Geo, etc.)
+│   └── prod.yaml                    # Cloud-Platzhalter
+├── data/sample/                     # Kleine lokale Beispiel- und Replay-Daten
+│   ├── batch/                       # Olist-Manifest, Open Food Facts Sample
+│   └── streaming/                   # Retailrocket JSONL (3 Events)
+├── docs/                            # Architektur, ADRs, Runbooks
+├── infra/terraform/gcp/             # GCP-Grundgeruest (Buckets, Datasets, IAM)
+├── kafka/                           # Topic-Katalog und create_topics.sh
+├── nosql/mongodb/                   # init.js fuer Collections und Indexes
+├── orchestration/kestra/flows/      # Kestra-Flow (daily_platform_ingestion)
+├── quality/
+│   ├── contracts/                   # 4 YAML-Vertraege
+│   └── expectations/                # SQL-Checks (fx_rates, order_statuses, etc.)
+├── spark/jobs/                      # clickstream_sessionization.py
+├── sql/postgres/init/               # Schema-Init + Raw-Tabellen-DDL
 ├── src/omnichannel_platform/
-│   ├── batch/                           # Batch-Ingestion
-│   ├── common/                          # Logging, Config, Clients, I/O
-│   ├── quality/                         # Quality-Runner
-│   ├── streaming/                       # Replay / Streaming
-│   └── warehouse/                       # Warehouse-Layer-Katalog
-├── tests/                               # Unit- und Integrationstests
-└── warehouse/dbt/                       # dbt-Projekt mit Macros, Modellen und Tests
+│   ├── batch/                       # commerce_batch_ingestion, source_plans, orders_ingestion
+│   ├── common/                      # logging, settings, clients (Postgres/Mongo), io
+│   ├── quality/                     # rules_catalog (SQL-Runner + Report)
+│   ├── streaming/                   # clickstream_consumer (Replay + Kafka + Persist)
+│   └── warehouse/                   # layer_catalog
+├── tests/
+│   ├── fixtures/                    # sample_orders.json, sample_clickstream_events.jsonl
+│   ├── unit/                        # 4 Testdateien, 11 Tests
+│   └── integration/                 # Repository-Foundation-Check
+└── warehouse/
+    ├── dbt/
+    │   ├── macros/                  # raw_relations.sql (source-aware Fallback)
+    │   ├── models/
+    │   │   ├── staging/             # 9 Staging Views
+    │   │   ├── intermediate/        # 2 Intermediate Views
+    │   │   └── marts/               # 3 Mart Tables
+    │   ├── tests/                   # 3 Singular Tests
+    │   ├── dbt_project.yml
+    │   ├── profiles.ci.yml          # DuckDB CI-Profil
+    │   └── profiles.yml.example     # Postgres/DuckDB/BigQuery Multi-Target
+    └── seeds/                       # (bereit fuer Referenzdaten)
 ```
 
-Wichtige Dateien:
-
-- [docker-compose.yml](docker-compose.yml)
-- [Makefile](Makefile)
-- [config/base.yaml](config/base.yaml)
-- [config/dev.yaml](config/dev.yaml)
-- [warehouse/dbt/dbt_project.yml](warehouse/dbt/dbt_project.yml)
-- [orchestration/kestra/flows/daily_platform_ingestion.yml](orchestration/kestra/flows/daily_platform_ingestion.yml)
+---
 
 ## Lokales Setup
 
@@ -316,32 +328,14 @@ source .venv/bin/activate
 make install-local
 ```
 
-`make install-local` installiert die lokalen Extras für:
-
-- Entwicklung
-- Batch
-- Streaming
-- Warehouse
-- MongoDB/NoSQL
-- Quality
+`make install-local` installiert alle lokalen Extras: dev, batch, streaming, warehouse, nosql, quality.
 
 ### 2. Umgebungsvariablen
 
-Die Vorlage liegt in [.env.example](.env.example).
-
-Typische lokale Variablen:
-
-- PostgreSQL-Verbindung
-- Kafka/Redpanda-Bootstrap-Server
-- MongoDB-URI
-- Kaggle-Credentials für echte Olist-/Retailrocket-Downloads
-- BigQuery-/GCP-Platzhalter
-- Kestra- und Spark-Parameter
-
-TODO:
-
-- produktive Secrets niemals direkt im Repo hinterlegen
-- für Cloud-Läufe Secret Manager, CI-Secrets oder Orchestrator-Secrets nutzen
+```bash
+cp .env.example .env
+# Anpassen: POSTGRES_HOST, KAFKA_BOOTSTRAP_SERVERS, MONGO_URI, etc.
+```
 
 ### 3. Plattform-Stack starten
 
@@ -349,15 +343,7 @@ TODO:
 docker compose up -d
 ```
 
-Der Compose-Stack enthält aktuell:
-
-- PostgreSQL 18
-- pgAdmin
-- Redpanda v25.3.9
-- Redpanda Console
-- MongoDB 7
-- MinIO
-- Kestra v1.1
+Der Compose-Stack enthaelt: PostgreSQL 18, pgAdmin, Redpanda v25.3.9 + Console, MongoDB 7, MinIO, Kestra v1.1.
 
 ### 4. Kafka-Topics anlegen
 
@@ -365,196 +351,553 @@ Der Compose-Stack enthält aktuell:
 make kafka-topics
 ```
 
-Standardtopics:
-
-- `retailrocket.events.raw`
-- `retailrocket.events.view`
-- `retailrocket.events.addtocart`
-- `retailrocket.events.transaction`
-- `retailrocket.events.dlq`
-
-### 5. Starter-Workflows ausführen
+### 5. Starter-Workflows ausfuehren
 
 ```bash
-make run-batch
-make run-streaming
-make run-warehouse
-make run-quality
+make run-batch          # Batch-Ingestion (Olist + APIs)
+make run-streaming      # Retailrocket Replay
+make run-warehouse      # dbt build (CI-Profil mit DuckDB)
+make run-quality        # Quality-Checks
 ```
+
+---
+
+## Schritt-fuer-Schritt Testanleitung
+
+Dieser Abschnitt beschreibt, wie jede implementierte Komponente einzeln getestet werden kann.
+
+### Voraussetzungen
+
+```bash
+# Python-Umgebung aufsetzen
+python3 -m venv .venv
+source .venv/bin/activate
+make install-local
+
+# Docker-Stack starten (PostgreSQL, Redpanda, MongoDB, MinIO, Kestra)
+docker compose up -d
+
+# Warten bis PostgreSQL bereit ist
+docker compose exec postgres pg_isready -U commerce -d commerce_platform
+```
+
+### Test 1: Unit-Tests und Lint
+
+```bash
+# Lint-Pruefung -- muss ohne Fehler durchlaufen
+make lint
+
+# Unit-Tests -- alle 11 Tests muessen gruen sein
+make test
+
+# Erwartete Ausgabe:
+# tests/integration/test_repository_foundations.py    1 passed
+# tests/unit/test_ingestion_plans.py                 5 passed
+# tests/unit/test_quality_assets.py                  1 passed
+# tests/unit/test_sample_fixtures.py                 2 passed
+# tests/unit/test_settings.py                        2 passed
+# ============================== 11 passed ==============================
+```
+
+**Was wird getestet:**
+- `test_settings.py`: YAML-Config-Loading, Deep-Merge, Environment-Override
+- `test_ingestion_plans.py`: Batch-Source-Plans (Olist, Open Food Facts, Open-Meteo, Frankfurter), Streaming-Plan, Event-Routing, Event-Normalisierung
+- `test_sample_fixtures.py`: Fixture-Struktur (Orders, Clickstream)
+- `test_quality_assets.py`: Quality-Asset-Discovery (Contracts + Expectations)
+- `test_repository_foundations.py`: Prueft ob alle Schluesssel-Dateien existieren
+
+### Test 2: Batch-Ingestion (Olist Seed + API-Enrichments)
+
+```bash
+# Nur Olist
+make run-batch ENVIRONMENT=dev
+
+# Oder einzelne Quelle
+python -m omnichannel_platform.batch.commerce_batch_ingestion --env dev --source olist
+python -m omnichannel_platform.batch.commerce_batch_ingestion --env dev --source open_food_facts
+python -m omnichannel_platform.batch.commerce_batch_ingestion --env dev --source open_meteo
+python -m omnichannel_platform.batch.commerce_batch_ingestion --env dev --source frankfurter
+```
+
+**Pruefung nach dem Lauf:**
+
+```bash
+# PostgreSQL: Pruefen ob Daten geladen wurden
+docker compose exec postgres psql -U commerce -d commerce_platform -c "
+  SELECT source_name, batch_id, row_count, loaded_at
+  FROM raw.ingestion_audit
+  ORDER BY loaded_at DESC;
+"
+
+# Erwartetes Ergebnis:
+# source_name    | batch_id                    | row_count
+# olist          | olist-20260403T...          | ~2400  (500 orders + 1200 items + 250 customers + 150 products + 500 payments)
+# open_food_facts| open-food-facts-20260403T...| 3-4
+# open_meteo     | weather-20260403T...        | ~1095  (365 Tage x 3 Staedte)
+# frankfurter    | fx-20260403T...             | ~500   (260 Handelstage x 2 Waehrungen)
+
+# Einzelne Raw-Tabellen pruefen
+docker compose exec postgres psql -U commerce -d commerce_platform -c "SELECT count(*) FROM raw.olist_orders;"
+docker compose exec postgres psql -U commerce -d commerce_platform -c "SELECT count(*) FROM raw.open_meteo_weather;"
+docker compose exec postgres psql -U commerce -d commerce_platform -c "SELECT * FROM raw.open_food_facts_products LIMIT 3;"
+docker compose exec postgres psql -U commerce -d commerce_platform -c "SELECT * FROM raw.frankfurter_fx_rates LIMIT 5;"
+
+# Bronze-Artefakte pruefen
+ls -la storage/bronze/olist/_runs/
+ls -la storage/bronze/open_food_facts/products/_runs/
+ls -la storage/bronze/open_meteo/weather/_runs/
+ls -la storage/bronze/frankfurter/fx/_runs/
+```
+
+**Fehlerszenarien:**
+- PostgreSQL nicht erreichbar: Pipeline scheitert (Postgres ist Pflicht)
+- Open Food Facts API nicht erreichbar: Fallback auf `data/sample/batch/open_food_facts_products_sample.json`
+- Open-Meteo / Frankfurter API nicht erreichbar: Pipeline loggt Warnung und ueberspringt
+
+### Test 3: Streaming-Replay (Retailrocket)
+
+```bash
+make run-streaming
+```
+
+**Pruefung nach dem Lauf:**
+
+```bash
+# PostgreSQL: Retailrocket-Events pruefen
+docker compose exec postgres psql -U commerce -d commerce_platform -c "
+  SELECT event_type, count(*) FROM raw.retailrocket_events GROUP BY event_type;
+"
+# Erwartetes Ergebnis: view=1, addtocart=1, transaction=1
+
+# Replay-Checkpoint pruefen
+cat storage/checkpoints/retailrocket/last_replay.json
+
+# Replay-Archiv pruefen
+ls storage/checkpoints/retailrocket/replays/
+
+# Kafka-Topics pruefen (wenn Redpanda laeuft)
+docker compose exec redpanda rpk topic list
+docker compose exec redpanda rpk topic consume retailrocket.events.raw --num 3
+```
+
+**Fehlerszenarien:**
+- Redpanda nicht erreichbar: Replay laeuft trotzdem (Kafka-Publish wird uebersprungen)
+- MongoDB nicht erreichbar: Replay laeuft trotzdem (Mongo-Persist wird uebersprungen)
+- PostgreSQL nicht erreichbar: Pipeline-Schritt scheitert
+
+### Test 4: dbt Transformation (DuckDB CI-Profil)
+
+```bash
+# Vollstaendiger dbt-Build mit DuckDB (kein PostgreSQL noetig)
+make run-warehouse
+
+# Oder einzeln
+make dbt-build-ci
+```
+
+**Pruefung nach dem Lauf:**
+
+```bash
+# dbt-Target-Artefakte pruefen
+ls warehouse/dbt/target/
+cat warehouse/dbt/target/manifest.json | python -m json.tool | head -20
+
+# DuckDB-Datei pruefen (falls vorhanden)
+ls -la storage/warehouse/local.duckdb
+```
+
+**Was dbt baut:**
+- 9 Staging-Views: `stg_olist_orders`, `stg_olist_order_items`, `stg_olist_customers`, `stg_olist_products`, `stg_olist_order_payments`, `stg_retailrocket_events`, `stg_open_food_facts_products`, `stg_open_meteo_weather`, `stg_frankfurter_fx_rates`
+- 2 Intermediate-Views: `int_orders_with_context`, `int_retailrocket_sessions`
+- 3 Mart-Tables: `fct_commerce_orders`, `fct_retailrocket_sessions`, `dim_products`
+- 3 Singular-Tests: `assert_valid_olist_order_statuses`, `assert_valid_retailrocket_event_types`, `assert_positive_fx_rates`
+- Spalten-Tests: not_null, unique auf Schluesselfeldern
+
+**dbt mit PostgreSQL-Target (nach Batch-Ingestion):**
+
+```bash
+# dbt-Profil fuer lokales PostgreSQL kopieren
+mkdir -p ~/.dbt
+cp warehouse/dbt/profiles.yml.example ~/.dbt/profiles.yml
+
+# dbt gegen echte Daten bauen
+dbt build --project-dir warehouse/dbt --target dev
+
+# Mart-Ergebnisse pruefen
+docker compose exec postgres psql -U commerce -d commerce_platform -c "
+  SELECT count(*) as orders, avg(payment_value_brl) as avg_payment
+  FROM staging.fct_commerce_orders;
+"
+docker compose exec postgres psql -U commerce -d commerce_platform -c "
+  SELECT * FROM staging.dim_products LIMIT 5;
+"
+```
+
+### Test 5: Datenqualitaet
+
+```bash
+# Quality-Checks ausfuehren (mit PostgreSQL)
+make run-quality
+
+# Oder im Non-Strict-Modus (kein Exit-Code bei Fehlern)
+python -m omnichannel_platform.quality.rules_catalog --non-strict
+```
+
+**Pruefung nach dem Lauf:**
+
+```bash
+# Quality-Report pruefen
+cat storage/checkpoints/quality/last_run.json | python -m json.tool
+
+# Erwartete Struktur:
+# {
+#   "contracts": [...],      # Liste der geladenen Vertraege
+#   "results": [...],        # passed / failed / skipped pro Expectation
+#   "summary": {
+#     "passed": N,
+#     "failed": 0,
+#     "skipped": M
+#   }
+# }
+```
+
+**Wenn PostgreSQL nicht laeuft:** Alle SQL-Expectations werden sauber als `skipped` markiert.
+
+### Test 6: Spark Sessionisierung
+
+```bash
+# Spark-Submit (PySpark muss installiert sein)
+make spark-sessionize
+
+# Oder direkt
+spark-submit spark/jobs/clickstream_sessionization.py \
+  --input-path data/sample/streaming/retailrocket_events.jsonl \
+  --output-path storage/gold/retailrocket_sessions \
+  --gap-minutes 30
+```
+
+**Pruefung nach dem Lauf:**
+
+```bash
+# Parquet-Output pruefen
+ls storage/gold/retailrocket_sessions/
+
+# Mit Python lesen
+python -c "
+import pandas as pd
+df = pd.read_parquet('storage/gold/retailrocket_sessions')
+print(df)
+print(f'Sessions: {len(df)}')
+print(f'Spalten: {list(df.columns)}')
+"
+# Erwartete Spalten: session_key, visitor_id, session_start_ts, session_end_ts,
+#                    event_count, view_count, addtocart_count, transaction_count, sample_item_id
+```
+
+### Test 7: Kafka-Topics (Redpanda)
+
+```bash
+# Topics anlegen
+make kafka-topics
+
+# Topics pruefen
+docker compose exec redpanda rpk topic list
+
+# Erwartete Topics:
+# retailrocket.events.raw          (3 Partitions)
+# retailrocket.events.view         (6 Partitions)
+# retailrocket.events.addtocart    (6 Partitions)
+# retailrocket.events.transaction  (6 Partitions)
+# retailrocket.events.dlq          (3 Partitions)
+```
+
+### Test 8: Terraform (Dry-Run)
+
+```bash
+cd infra/terraform/gcp
+
+# Terraform-Konfiguration validieren (ohne echten Cloud-Zugang)
+cp terraform.tfvars.example terraform.tfvars
+terraform init
+terraform validate
+terraform plan
+
+# Zurueck ins Projektroot
+cd ../../..
+```
+
+**Erwartete Ressourcen im Plan:**
+- 1 Service Account
+- 2 GCS Buckets (Raw + Processed) mit Lifecycle-Rules
+- 3 BigQuery Datasets (raw, staging, marts)
+- 2 IAM Bindings
+
+### Test 9: Vollstaendiger End-to-End-Lauf
+
+```bash
+# 1. Stack starten
+docker compose up -d
+
+# 2. Warten bis alles bereit ist
+docker compose exec postgres pg_isready -U commerce -d commerce_platform
+
+# 3. Topics anlegen
+make kafka-topics
+
+# 4. Batch-Ingestion
+make run-batch
+
+# 5. Streaming-Replay
+make run-streaming
+
+# 6. dbt gegen PostgreSQL bauen
+mkdir -p ~/.dbt && cp warehouse/dbt/profiles.yml.example ~/.dbt/profiles.yml
+dbt build --project-dir warehouse/dbt --target dev
+
+# 7. Quality-Checks
+make run-quality
+
+# 8. Ergebnisse pruefen
+docker compose exec postgres psql -U commerce -d commerce_platform -c "
+  SELECT 'raw.olist_orders' as table_name, count(*) FROM raw.olist_orders
+  UNION ALL SELECT 'raw.olist_order_items', count(*) FROM raw.olist_order_items
+  UNION ALL SELECT 'raw.olist_customers', count(*) FROM raw.olist_customers
+  UNION ALL SELECT 'raw.olist_products', count(*) FROM raw.olist_products
+  UNION ALL SELECT 'raw.olist_order_payments', count(*) FROM raw.olist_order_payments
+  UNION ALL SELECT 'raw.retailrocket_events', count(*) FROM raw.retailrocket_events
+  UNION ALL SELECT 'raw.open_food_facts_products', count(*) FROM raw.open_food_facts_products
+  UNION ALL SELECT 'raw.open_meteo_weather', count(*) FROM raw.open_meteo_weather
+  UNION ALL SELECT 'raw.frankfurter_fx_rates', count(*) FROM raw.frankfurter_fx_rates
+  UNION ALL SELECT 'staging.fct_commerce_orders', count(*) FROM staging.fct_commerce_orders
+  UNION ALL SELECT 'staging.fct_retailrocket_sessions', count(*) FROM staging.fct_retailrocket_sessions
+  UNION ALL SELECT 'staging.dim_products', count(*) FROM staging.dim_products;
+"
+
+# 9. Stack beenden
+docker compose down
+```
+
+---
 
 ## Zentrale Make-Targets
 
 | Target | Zweck |
 |---|---|
-| `make install-local` | lokale Entwicklungs- und Laufzeitabhängigkeiten installieren |
+| `make install-local` | Lokale Entwicklungs- und Laufzeitabhaengigkeiten installieren |
 | `make up` | Docker-Compose-Stack starten |
 | `make down` | Docker-Compose-Stack stoppen |
-| `make run-batch` | Batch-Ingestion für Olist und API-Enrichments ausführen |
-| `make run-streaming` | Retailrocket-Replay ausführen |
-| `make run-warehouse` | Warehouse-Layer planen und `dbt build` gegen das CI-Profil ausführen |
+| `make logs` | Docker-Compose-Logs anzeigen |
+| `make run-batch` | Batch-Ingestion fuer Olist und API-Enrichments ausfuehren |
+| `make run-streaming` | Retailrocket-Replay ausfuehren |
+| `make run-warehouse` | Warehouse-Layer planen + `dbt build` (DuckDB CI-Profil) |
+| `make dbt-build-ci` | Nur `dbt build` gegen DuckDB-CI-Profil |
 | `make run-quality` | SQL-basierte Quality-Checks starten |
 | `make kafka-topics` | Kafka-/Redpanda-Topics anlegen |
-| `make spark-sessionize` | Spark-Sessionisierung für Retailrocket-Beispieldaten ausführen |
-| `make test` | pytest-Suite ausführen |
-| `make lint` | Ruff-Linting ausführen |
+| `make spark-sessionize` | Spark-Sessionisierung fuer Retailrocket-Beispieldaten |
+| `make test` | pytest-Suite ausfuehren (11 Tests) |
+| `make lint` | Ruff-Linting ausfuehren |
+| `make pre-commit` | Pre-commit Hooks ausfuehren |
+
+---
 
 ## Was aktuell implementiert ist
 
 ### Batch
 
-- Olist-Snapshot-Generierung für lokale Tests
-- Laden von Orders, Items, Customers, Products, Payments
-- Open-Food-Facts-Produktabruf per Barcode mit lokalem Fallback
-- Open-Meteo-Wetterabruf für konfigurierte Städte
-- Frankfurter-FX-Abruf für konfigurierten Zeitraum
-- Bronze-Artefakte und Run-Manifeste
-- Postgres-Loads in `raw.*`
-- optionale Mongo-Persistenz
+- Olist-Seed-Generierung (deterministisch, 500 Orders, 250 Customers, 150 Products, 1200 Items, 500 Payments)
+- Laden aller 5 Olist-Tabellen in `raw.*` mit TRUNCATE+APPEND
+- Open-Food-Facts-Produktabruf per Barcode (4 konfigurierte Barcodes) mit lokalem Fallback
+- Open-Meteo-Wetterabruf fuer 3 brasilianische Staedte (365 Tage)
+- Frankfurter-FX-Abruf fuer EUR->USD/BRL (1 Jahr Handelstage)
+- Bronze-Artefakte und Run-Manifeste pro Batch-Lauf
+- PostgreSQL-Loads in `raw.*` mit Ingestion-Audit
+- Optionale Mongo-Persistenz fuer alle API-Payloads
 
 ### Streaming
 
-- Replay aus lokaler JSONL-Datei
-- Event-Normalisierung
-- Topic-Routing
-- Kafka-Publish, wenn Broker verfügbar
-- Persistenz nach PostgreSQL
+- Replay aus lokaler JSONL-Datei (3 Beispiel-Events)
+- Event-Normalisierung (Lowercasing, String-Casting)
+- Topic-Routing (`view` -> `retailrocket.events.view`, `addtocart` -> `retailrocket.events.addtocart`, `transaction` -> `retailrocket.events.transaction`, unbekannt -> DLQ)
+- Kafka-Publish wenn Broker verfuegbar (graceful Skip wenn nicht)
+- Persistenz nach PostgreSQL `raw.retailrocket_events`
+- Optionale MongoDB-Persist
 - Replay-Artefakte und Checkpoint-Dateien
 
-### Warehouse
+### Warehouse (dbt)
 
-- Raw-Tabellen-Initialisierung in PostgreSQL
-- dbt-Macro für relation-aware Fallbacks
-- Staging-Modelle für alle aktuellen Quellen
-- Intermediate-Modelle für Order-Kontext und Sessions
-- Mart-Modelle für Orders, Sessions und Produkte
+- `raw_relation_exists` Macro fuer source-aware Fallbacks
+- 9 Staging-Views (alle Quellen normalisiert)
+- `int_orders_with_context`: Orders + Customers + Items + Payments + Wetter + FX-Cross-Rate (BRL->USD)
+- `int_retailrocket_sessions`: 30-Min-Gap-Sessionisierung mit Window-Functions
+- `fct_commerce_orders`: Order-Grain Fact mit `payment_value_usd`
+- `fct_retailrocket_sessions`: Session-Grain Fact mit Event-Type-Counts
+- `dim_products`: Olist + Open Food Facts kombiniert ueber `product_key` und `source_system`
+- 3 Singular-Tests + Spalten-Tests (not_null, unique)
 
-### Datenqualität
+### Datenqualitaet
 
-- deklarative Qualitätsverträge
-- SQL-Erwartungen
-- dbt-Tests
-- Python-Runner für Datenqualität mit Report-Ausgabe
+- 4 deklarative Qualitaetsvertraege (Olist, Retailrocket, Marts, Enrichments)
+- SQL-Expectations (FX-Raten positiv, Order-Statuses gueltig, Event-Types gueltig, Produkt-Codes nicht null)
+- Python-Runner mit PostgreSQL-Execution und JSON-Report
+- Graceful Skip wenn PostgreSQL nicht erreichbar
+
+### Spark
+
+- Clickstream-Sessionisierung mit PySpark
+- Schema-Validation, 30-Min-Gap, Window-Functions
+- Parquet-Output nach `storage/gold/retailrocket_sessions`
 
 ### Engineering-Workflow
 
-- pytest-Startertests
-- GitHub-Actions-Workflows für Lint, Tests und dbt
+- 11 pytest-Tests (Unit + Integration)
+- 3 GitHub-Actions-Workflows (lint, tests, dbt-checks)
 - pre-commit-Konfiguration
-- klare modulare Repository-Struktur
+- Modulare Repository-Struktur
+
+---
 
 ## Warehouse- und dbt-Modellierung
 
 ### Raw-Schicht
 
-Die Rohdatenschicht bildet die operative Landefläche für normalisierte Tabellen:
+Die Rohdatenschicht bildet die operative Landeflaeche fuer normalisierte Tabellen:
 
-- `raw.olist_orders`
-- `raw.olist_order_items`
-- `raw.olist_customers`
-- `raw.olist_products`
-- `raw.olist_order_payments`
-- `raw.retailrocket_events`
-- `raw.open_food_facts_products`
-- `raw.open_meteo_weather`
-- `raw.frankfurter_fx_rates`
+| Tabelle | Quelle | Erwartete Zeilen (Seed) |
+|---|---|---|
+| `raw.olist_orders` | Olist Seed | ~500 |
+| `raw.olist_order_items` | Olist Seed | ~1200 |
+| `raw.olist_customers` | Olist Seed | ~250 |
+| `raw.olist_products` | Olist Seed | ~150 |
+| `raw.olist_order_payments` | Olist Seed | ~500 |
+| `raw.retailrocket_events` | Replay | 3 (Sample) |
+| `raw.open_food_facts_products` | API | 3-4 |
+| `raw.open_meteo_weather` | API | ~1095 |
+| `raw.frankfurter_fx_rates` | API | ~520 |
 
 ### Staging-Schicht
 
 Die Staging-Modelle harmonisieren Datentypen, Benennungen und Basisnormalisierung.
-
-Beispiele:
-
-- [stg_olist_orders.sql](warehouse/dbt/models/staging/stg_olist_orders.sql)
-- [stg_retailrocket_events.sql](warehouse/dbt/models/staging/stg_retailrocket_events.sql)
-- [stg_open_food_facts_products.sql](warehouse/dbt/models/staging/stg_open_food_facts_products.sql)
+Jedes Modell nutzt `raw_relation_exists()` fuer source-aware Fallbacks.
 
 ### Intermediate-Schicht
 
-Die Intermediate-Modelle bilden technische und fachliche Voraggregation:
+- [int_orders_with_context.sql](warehouse/dbt/models/intermediate/int_orders_with_context.sql):
+  Verbindet Orders mit Customers (Stadt, Bundesstaat), Items (Artikelanzahl, Warenwert),
+  Payments (BRL-Betrag, Zahlungsart), Weather (Temperatur, Niederschlag am Kauftag+Stadt),
+  FX (BRL->USD Cross-Rate ueber EUR)
 
-- [int_orders_with_context.sql](warehouse/dbt/models/intermediate/int_orders_with_context.sql)
-  verbindet Orders mit Kunden, Artikeln, Payments, Wetter und FX
-- [int_retailrocket_sessions.sql](warehouse/dbt/models/intermediate/int_retailrocket_sessions.sql)
-  sessionisiert Clickstream-Ereignisse mit einer Inaktivitätslücke von 30 Minuten
+- [int_retailrocket_sessions.sql](warehouse/dbt/models/intermediate/int_retailrocket_sessions.sql):
+  Sessionisierung mit 30-Min-Inaktivitaetsluecke, Window-Functions (LAG, SUM), Event-Type-Counts
 
 ### Mart-Schicht
 
-Aktuelle Mart-Modelle:
+- [fct_commerce_orders.sql](warehouse/dbt/models/marts/fct_commerce_orders.sql):
+  Order-Grain mit BRL und USD-Betraegen, Kundengeografie, Produktkategorie, Wetterkontext
+- [fct_retailrocket_sessions.sql](warehouse/dbt/models/marts/fct_retailrocket_sessions.sql):
+  Session-Grain mit view/addtocart/transaction-Counts
+- [dim_products.sql](warehouse/dbt/models/marts/dim_products.sql):
+  Olist-Produkte + Open-Food-Facts-Produkte ueber `product_key` + `source_system` getrennt
 
-- [fct_commerce_orders.sql](warehouse/dbt/models/marts/fct_commerce_orders.sql)
-- [fct_retailrocket_sessions.sql](warehouse/dbt/models/marts/fct_retailrocket_sessions.sql)
-- [dim_products.sql](warehouse/dbt/models/marts/dim_products.sql)
+---
 
-Diese Modelle sind bewusst Starter und keine „fake business perfected marts“. Sie zeigen die
-Richtung, nicht den endgültigen Fachschnitt.
+## Datenqualitaet
 
-## Datenqualität
+### Vertraege
 
-Qualitätsartefakte liegen in:
+| Datei | Scope |
+|---|---|
+| [raw_olist_orders.yml](quality/contracts/raw_olist_orders.yml) | order_id not null, status domain, timestamp present |
+| [raw_retailrocket_events.yml](quality/contracts/raw_retailrocket_events.yml) | event_id not null, visitor_id not null, event_type domain |
+| [marts_commerce.yml](quality/contracts/marts_commerce.yml) | order_id unique, customer_id present |
+| [reference_enrichments.yml](quality/contracts/reference_enrichments.yml) | product_code not null, fx_rate positive, weather_date present |
 
-- [quality/contracts](quality/contracts)
-- [quality/expectations](quality/expectations)
-- [warehouse/dbt/tests](warehouse/dbt/tests)
+### SQL-Expectations
 
-Beispiele für Checks:
+| Datei | Prueft |
+|---|---|
+| `assert_positive_fx_rates.sql` | Alle FX-Raten > 0 |
+| `assert_valid_olist_order_statuses.sql` | Nur bekannte Order-Statuses |
+| `assert_valid_retailrocket_event_types.sql` | Nur view/addtocart/transaction |
+| `reference_open_food_facts_products_not_null.sql` | product_code und product_name nicht leer |
 
-- `order_id` darf nicht `null` sein
-- Retailrocket-Eventtypen müssen in einer bekannten Domain liegen
-- FX-Raten müssen positiv sein
-- Mart-Order-IDs müssen eindeutig sein
+### Report-Ausgabe
 
-Der Qualitäts-Runner schreibt den letzten Lauf nach:
+```bash
+# Nach make run-quality:
+cat storage/checkpoints/quality/last_run.json
+```
 
-- `storage/checkpoints/quality/last_run.json`
-
-Wenn PostgreSQL lokal nicht erreichbar ist, werden SQL-Checks sauber übersprungen statt das Repo
-unnötig „rot“ erscheinen zu lassen.
+---
 
 ## Orchestrierung mit Kestra
 
-Der Flow [daily_platform_ingestion.yml](orchestration/kestra/flows/daily_platform_ingestion.yml) bildet den aktuellen lokalen Ablauf ab:
+Der Flow [daily_platform_ingestion.yml](orchestration/kestra/flows/daily_platform_ingestion.yml):
 
-1. Batch-Ingestion
-2. Retailrocket-Replay
-3. Warehouse-Layer-Planung
-4. Datenqualitätslauf
+1. `batch_ingestion` -- Olist + Open Food Facts + Open-Meteo + Frankfurter
+2. `retailrocket_replay` -- Streaming-Replay
+3. `warehouse_layers` -- Layer-Planung
+4. `run_quality` -- Quality-Checks (non-strict)
+5. Parametrisierte Inputs: `environment` (default: dev), `streaming_mode` (default: replay)
+6. Trigger: Daily um 06:00 UTC
 
-Der Flow ist absichtlich noch shell-basiert, damit die Einstiegshürde lokal niedrig bleibt. Für eine
-nächste Reifestufe wäre ein dediziertes Runtime-Image sinnvoll, in dem Python-Abhängigkeiten und dbt
-bereits enthalten sind.
+Zugang: `http://localhost:8080` nach `docker compose up -d`
+
+---
 
 ## Spark-Pfad
 
-Unter [spark/jobs/clickstream_sessionization.py](spark/jobs/clickstream_sessionization.py) gibt es einen echten Starter für Sessionisierung:
+[clickstream_sessionization.py](spark/jobs/clickstream_sessionization.py):
 
-- liest die Retailrocket-Beispieldatei
-- bildet Sessions auf Basis eines 30-Minuten-Gaps
-- schreibt Session-Summaries als Parquet nach `storage/gold/retailrocket_sessions`
+- Liest Retailrocket-Events aus JSONL
+- Normalisiert Timestamps und Event-Types
+- Bildet Sessions ueber `visitor_id` mit 30-Min-Gap
+- Aggregiert: event_count, view_count, addtocart_count, transaction_count
+- Schreibt Parquet nach `storage/gold/retailrocket_sessions`
 
-Das ist bewusst noch kein produktiver Structured-Streaming-Job, aber ein sauberer Einstiegspunkt für
-spätere Skalierung.
+---
 
 ## GCP- und Terraform-Fundament
 
-Das GCP-Fundament unter [infra/terraform/gcp](infra/terraform/gcp) enthält aktuell:
+[infra/terraform/gcp](infra/terraform/gcp):
 
-- Google-Provider `5.6.0`
-- Service-Konto
-- Raw- und Processed-GCS-Buckets
-- BigQuery-Datasets für `commerce_raw`, `commerce_staging`, `commerce_marts`
-- IAM-Zuweisungen als Starter-Fundament
-- vorbereitete Zielkonfiguration für Public-Dataset-Referenzen in `US`
+- Google-Provider `5.6.0` mit Credentials-File
+- Service-Konto mit BigQuery-Admin und Storage-Admin
+- 2 GCS-Buckets (Raw, Processed) mit Versioning und 30-Tage-Lifecycle
+- 3 BigQuery-Datasets: `commerce_raw`, `commerce_staging`, `commerce_marts`
+- Location: `US` (kompatibel mit Public Datasets)
 
-Bewusst noch offen:
+---
 
-- Remote State
-- Aktivierung benötigter GCP-APIs
-- Secret- und Credential-Management
-- CI/CD-Deploymentpfade
+## CI/CD-Pipeline
+
+### Workflows
+
+| Workflow | Trigger | Prueft |
+|---|---|---|
+| [lint.yml](.github/workflows/lint.yml) | push main + PRs | `pre-commit run --all-files` |
+| [tests.yml](.github/workflows/tests.yml) | push main + PRs | `pytest` (11 Tests) |
+| [dbt-checks.yml](.github/workflows/dbt-checks.yml) | push main + PRs | `dbt parse` + `dbt build` (DuckDB CI-Profil) |
+
+Alle Workflows nutzen Python 3.11 und laufen auf `ubuntu-latest`.
+
+### Lokale CI-Simulation
+
+```bash
+# Lint
+make lint
+
+# Tests
+make test
+
+# dbt CI-Build
+make dbt-build-ci
+```
+
+---
 
 ## Validierung und Entwicklung
 
-### Lokaler Prüfpfad
+### Lokaler Pruefpfad
 
 ```bash
 ruff check .
@@ -563,52 +906,48 @@ make run-warehouse
 make run-quality
 ```
 
-### Bereits erfolgreich geprüft
+### Bereits erfolgreich geprueft
 
-Der aktuelle Stand wurde bereits lokal gegen folgende Schritte geprüft:
-
-- `ruff check .`
-- `pytest`
-- `make run-warehouse` inklusive `dbt build`
+- `ruff check .` -- sauber
+- `pytest` -- 11/11 gruen
+- `make run-warehouse` inklusive `dbt build` -- sauber
 - `make run-quality` mit sauberem Skip-Verhalten ohne erreichbares PostgreSQL
 
-### Entwicklerfreundliche Grundlagen
-
-- `pre-commit` ist vorbereitet
-- GitHub Actions für Lint, Tests und dbt-Checks sind vorhanden
-- Beispiel-Fixtures für Tests liegen im Repo
-- die Struktur ist bewusst modular, nicht monolithisch
+---
 
 ## Aktuelle Grenzen
 
 - Olist nutzt lokal generierte Seed-Daten, solange keine echten CSV-Snapshots bereitliegen
 - Retailrocket ist aktuell Replay-basiert und nicht an einen Live-Collector angebunden
-- Open Food Facts ist als echter Live-API-Pfad verdrahtet, nutzt bei temporären API-Störungen aber bewusst einen lokalen Fallback
-- MongoDB wird als Raw-Store vorbereitet, aber noch nicht mit langfristiger Retention-Strategie betrieben
+- Open Food Facts nutzt bei temporaeren API-Stoerungen einen lokalen Fallback
+- MongoDB wird als Raw-Store vorbereitet, aber noch nicht mit langfristiger Retention-Strategie
 - BigQuery ist architektonisch vorbereitet, aber nicht komplett durchdeployt
-- BigQuery-Public-Datasets erfordern eine `US`-kompatible Zielplanung für direkte Warehouse-Joins
 - Kestra startet reale Entry-Points, aber noch ohne dediziertes Runtime-Image
-- einige API- und Cloud-Details sind bewusst als TODO markiert, weil dafür echte Secrets und Zielkonten nötig sind
+- Dashboard (Streamlit/Looker) ist noch nicht implementiert
 
-## Nächste sinnvolle Ausbaustufen
+---
+
+## Naechste sinnvolle Ausbaustufen
 
 - echte Olist-Rohdaten per Kaggle-Downloadpfad anstelle lokaler Seeds einbinden
-- vollständige Retailrocket-Dateien automatisiert laden und replayen
+- vollstaendige Retailrocket-Dateien automatisiert laden und replayen
+- Streamlit-Dashboard mit Commerce-KPIs und Session-Analysen (mind. 2 Tiles: kategorisch + zeitlich)
 - Replay zu einem dauerhaften Consumer-/Streaming-Job weiterentwickeln
-- inkrementelle dbt-Strategien ergänzen
+- inkrementelle dbt-Strategien ergaenzen
 - Source Freshness und Exposures in dbt aufbauen
-- Datenqualitätsprüfungen in Orchestrierungs-Alerts integrieren
-- Streamlit- oder BI-Layer mit Kennzahlen und Session-Analysen ergänzen
-- BigQuery-Zielpfad mit echten GCP-Credentials und Remote State produktionsnäher machen
-- BigQuery-spezifische Starter-Modelle für `ga4_obfuscated_sample_ecommerce` und `thelook_ecommerce` ergänzen
+- Datenqualitaetspruefungen in Orchestrierungs-Alerts integrieren
+- BigQuery-Zielpfad mit echten GCP-Credentials und Remote State produktionsnaeher machen
+- BigQuery-spezifische Starter-Modelle fuer `ga4_obfuscated_sample_ecommerce` und `thelook_ecommerce` ergaenzen
+
+---
 
 ## Kurzfazit
 
 Dieses Projekt zeigt nicht nur einzelne Tools, sondern einen konsistenten Data-Engineering-Ansatz:
 
-- saubere Schichten
+- saubere Schichten (Raw -> Staging -> Intermediate -> Marts)
 - klare technische Grenzen
-- ausführbare Starter statt reiner Platzhalter
+- ausfuehrbare Starter statt reiner Platzhalter
 - dokumentierte Zielarchitektur
 - ehrlicher Status zwischen lokal nutzbar und cloud-ready vorbereitet
 
