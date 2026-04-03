@@ -30,6 +30,7 @@ lokalem Entwicklungs-Setup und spaeterer Cloud-Zielarchitektur.
 - [Datenqualitaet](#datenqualitaet)
 - [Orchestrierung mit Kestra](#orchestrierung-mit-kestra)
 - [Spark-Pfad](#spark-pfad)
+- [Dashboard und Frontend](#dashboard-und-frontend)
 - [GCP- und Terraform-Fundament](#gcp--und-terraform-fundament)
 - [CI/CD-Pipeline](#cicd-pipeline)
 - [Validierung und Entwicklung](#validierung-und-entwicklung)
@@ -198,6 +199,8 @@ Raw-Document-Store fuer JSON-Payloads und Replay-Artefakte.
 |  Qualitaet:      SQL-Expectations + dbt-Tests + Quality-Runner      |
 |  CI/CD:          GitHub Actions (lint, pytest, dbt build)           |
 |  IaC:            Terraform (Google Provider 5.6.0)                  |
+|  Frontend:       Streamlit + Plotly                                 |
+|  Deployment:     Docker Compose + Cloud Run                         |
 +---------------------------------------------------------------------+
 ```
 
@@ -262,11 +265,14 @@ Die Datenqualitaetslogik kombiniert:
 | IaC | Terraform (Google Provider) | 5.6.0 |
 | Cloud Warehouse | BigQuery | (Zielarchitektur) |
 | Cloud Storage | GCS | (Zielarchitektur) |
+| Frontend | Streamlit + Plotly | >=1.38 / >=5.24 |
+| Container | Docker / Docker Compose | latest |
+| Cloud App Runtime | Cloud Run | (Zielarchitektur) |
 | Python | Python | >=3.11 |
 | Build Tool | uv / pip | latest |
 | Linting | ruff | >=0.6 |
 | Testing | pytest | >=8.0 |
-| CI/CD | GitHub Actions | 3 Workflows |
+| CI/CD | GitHub Actions | 4 Workflows |
 
 ---
 
@@ -274,7 +280,9 @@ Die Datenqualitaetslogik kombiniert:
 
 ```text
 .
+├── .dockerignore                    # Schlanker Docker-Build-Context
 ├── .github/workflows/              # CI: lint, pytest, dbt-checks
+├── dashboard/                       # Streamlit-Frontend
 ├── config/                          # Basis-, Dev- und Prod-Konfiguration
 │   ├── base.yaml                    # Alle Quellen, Warehouse, Orchestrierung
 │   ├── dev.yaml                     # Lokale Overrides (Kafka, Geo, etc.)
@@ -295,12 +303,13 @@ Die Datenqualitaetslogik kombiniert:
 ├── src/omnichannel_platform/
 │   ├── batch/                       # commerce_batch_ingestion, source_plans, orders_ingestion
 │   ├── common/                      # logging, settings, clients (Postgres/Mongo), io
+│   ├── dashboard/                   # testbare Dashboard-Logik
 │   ├── quality/                     # rules_catalog (SQL-Runner + Report)
 │   ├── streaming/                   # clickstream_consumer (Replay + Kafka + Persist)
 │   └── warehouse/                   # layer_catalog
 ├── tests/
 │   ├── fixtures/                    # sample_orders.json, sample_clickstream_events.jsonl
-│   ├── unit/                        # 4 Testdateien, 11 Tests
+│   ├── unit/                        # 5 Testdateien, 13 Tests
 │   └── integration/                 # Repository-Foundation-Check
 └── warehouse/
     ├── dbt/
@@ -316,6 +325,14 @@ Die Datenqualitaetslogik kombiniert:
     └── seeds/                       # (bereit fuer Referenzdaten)
 ```
 
+Wichtige Einstiegspunkte:
+
+- [Dockerfile](Dockerfile)
+- [docker-compose.yml](docker-compose.yml)
+- [dashboard/app.py](dashboard/app.py)
+- [orchestration/kestra/flows/daily_platform_ingestion.yml](orchestration/kestra/flows/daily_platform_ingestion.yml)
+- [infra/terraform/gcp/main.tf](infra/terraform/gcp/main.tf)
+
 ---
 
 ## Lokales Setup
@@ -328,7 +345,7 @@ source .venv/bin/activate
 make install-local
 ```
 
-`make install-local` installiert alle lokalen Extras: dev, batch, streaming, warehouse, nosql, quality.
+`make install-local` installiert alle lokalen Extras: dev, batch, streaming, warehouse, nosql, quality, dashboard.
 
 ### 2. Umgebungsvariablen
 
@@ -343,7 +360,7 @@ cp .env.example .env
 docker compose up -d
 ```
 
-Der Compose-Stack enthaelt: PostgreSQL 18, pgAdmin, Redpanda v25.3.9 + Console, MongoDB 7, MinIO, Kestra v1.1.
+Der Compose-Stack enthaelt: PostgreSQL 18, pgAdmin, Redpanda v25.3.9 + Console, MongoDB 7, MinIO, Kestra v1.1, einen `platform-runner`-Container und das Streamlit-Dashboard.
 
 ### 4. Kafka-Topics anlegen
 
@@ -358,6 +375,7 @@ make run-batch          # Batch-Ingestion (Olist + APIs)
 make run-streaming      # Retailrocket Replay
 make run-warehouse      # dbt build (CI-Profil mit DuckDB)
 make run-quality        # Quality-Checks
+make run-dashboard      # Streamlit-Frontend lokal
 ```
 
 ---
@@ -387,22 +405,24 @@ docker compose exec postgres pg_isready -U commerce -d commerce_platform
 # Lint-Pruefung -- muss ohne Fehler durchlaufen
 make lint
 
-# Unit-Tests -- alle 11 Tests muessen gruen sein
+# Unit-Tests -- alle Tests muessen gruen sein
 make test
 
 # Erwartete Ausgabe:
 # tests/integration/test_repository_foundations.py    1 passed
+# tests/unit/test_dashboard_logic.py                  2 passed
 # tests/unit/test_ingestion_plans.py                 5 passed
 # tests/unit/test_quality_assets.py                  1 passed
 # tests/unit/test_sample_fixtures.py                 2 passed
 # tests/unit/test_settings.py                        2 passed
-# ============================== 11 passed ==============================
+# ============================== 13 passed ==============================
 ```
 
 **Was wird getestet:**
 - `test_settings.py`: YAML-Config-Loading, Deep-Merge, Environment-Override
 - `test_ingestion_plans.py`: Batch-Source-Plans (Olist, Open Food Facts, Open-Meteo, Frankfurter), Streaming-Plan, Event-Routing, Event-Normalisierung
 - `test_sample_fixtures.py`: Fixture-Struktur (Orders, Clickstream)
+- `test_dashboard_logic.py`: Filterlogik und Tabellenstatistiken fuer das Frontend
 - `test_quality_assets.py`: Quality-Asset-Discovery (Contracts + Expectations)
 - `test_repository_foundations.py`: Prueft ob alle Schluesssel-Dateien existieren
 
@@ -630,9 +650,30 @@ cd ../../..
 - 1 Service Account
 - 2 GCS Buckets (Raw + Processed) mit Lifecycle-Rules
 - 3 BigQuery Datasets (raw, staging, marts)
-- 2 IAM Bindings
+- 1 Artifact Registry Repository
+- 1 optionaler Cloud Run Service (wenn `dashboard_container_image` gesetzt ist)
+- IAM Bindings fuer BigQuery, Storage und Artifact Registry
 
-### Test 9: Vollstaendiger End-to-End-Lauf
+### Test 9: Dashboard lokal
+
+```bash
+# Direkt lokal
+make run-dashboard
+
+# Oder als Container
+docker compose up -d dashboard
+```
+
+Danach ist das Frontend unter `http://localhost:8501` erreichbar.
+
+### Test 10: Docker-Builds
+
+```bash
+make docker-build-pipeline
+make docker-build-dashboard GCP_PROJECT_ID=your-project-id GCP_REGION=us-central1
+```
+
+### Test 11: Vollstaendiger End-to-End-Lauf
 
 ```bash
 # 1. Stack starten
@@ -673,7 +714,10 @@ docker compose exec postgres psql -U commerce -d commerce_platform -c "
   UNION ALL SELECT 'staging.dim_products', count(*) FROM staging.dim_products;
 "
 
-# 9. Stack beenden
+# 9. Dashboard pruefen
+curl -I http://localhost:8501
+
+# 10. Stack beenden
 docker compose down
 ```
 
@@ -692,9 +736,16 @@ docker compose down
 | `make run-warehouse` | Warehouse-Layer planen + `dbt build` (DuckDB CI-Profil) |
 | `make dbt-build-ci` | Nur `dbt build` gegen DuckDB-CI-Profil |
 | `make run-quality` | SQL-basierte Quality-Checks starten |
+| `make run-dashboard` | Streamlit-Dashboard lokal starten |
 | `make kafka-topics` | Kafka-/Redpanda-Topics anlegen |
 | `make spark-sessionize` | Spark-Sessionisierung fuer Retailrocket-Beispieldaten |
-| `make test` | pytest-Suite ausfuehren (11 Tests) |
+| `make docker-build-pipeline` | Pipeline-Container lokal bauen |
+| `make docker-build-dashboard` | Dashboard-Container fuer lokalen oder Cloud-Tag bauen |
+| `make terraform-init-gcp` | Terraform in `infra/terraform/gcp` initialisieren |
+| `make terraform-plan-gcp` | Terraform-Plan inkl. Cloud-Run-Image-Variable ausfuehren |
+| `make terraform-apply-gcp` | Terraform-Apply fuer GCP und Cloud Run ausfuehren |
+| `make deploy-dashboard-gcp` | Dashboard-Image pushen und Cloud-Run-Deploy ueber Terraform anstossen |
+| `make test` | pytest-Suite ausfuehren (13 Tests) |
 | `make lint` | Ruff-Linting ausfuehren |
 | `make pre-commit` | Pre-commit Hooks ausfuehren |
 
@@ -749,10 +800,19 @@ docker compose down
 
 ### Engineering-Workflow
 
-- 11 pytest-Tests (Unit + Integration)
-- 3 GitHub-Actions-Workflows (lint, tests, dbt-checks)
+- 13 pytest-Tests (Unit + Integration)
+- 4 GitHub-Actions-Workflows (lint, tests, dbt-checks, integration)
 - pre-commit-Konfiguration
+- Docker-Build-Smoke-Test in der Integrationspipeline
 - Modulare Repository-Struktur
+
+### Frontend und Deployment
+
+- Streamlit-Dashboard mit Commerce-KPIs, Zeitreihen, Session-Funnel, Filtern und Insight-Kacheln
+- Testbare Dashboard-Logik unter `src/omnichannel_platform/dashboard/`
+- Multi-Stage-Dockerfile fuer Pipeline- und Dashboard-Image
+- Compose-Service fuer Dashboard und `platform-runner`
+- Terraform-Fundament fuer Artifact Registry und Cloud Run Deployment
 
 ---
 
@@ -836,9 +896,10 @@ Der Flow [daily_platform_ingestion.yml](orchestration/kestra/flows/daily_platfor
 1. `batch_ingestion` -- Olist + Open Food Facts + Open-Meteo + Frankfurter
 2. `retailrocket_replay` -- Streaming-Replay
 3. `warehouse_layers` -- Layer-Planung
-4. `run_quality` -- Quality-Checks (non-strict)
-5. Parametrisierte Inputs: `environment` (default: dev), `streaming_mode` (default: replay)
-6. Trigger: Daily um 06:00 UTC
+4. `dbt_build` -- `dbt build` gegen das CI-sichere Profil
+5. `run_quality` -- Quality-Checks (non-strict)
+6. Parametrisierte Inputs: `environment` (default: dev), `streaming_mode` (default: replay)
+7. Trigger: Daily um 06:00 UTC
 
 Zugang: `http://localhost:8080` nach `docker compose up -d`
 
@@ -856,6 +917,36 @@ Zugang: `http://localhost:8080` nach `docker compose up -d`
 
 ---
 
+## Dashboard und Frontend
+
+Das Frontend unter [dashboard/app.py](dashboard/app.py) visualisiert die Pipeline sowohl fachlich
+als auch technisch.
+
+Aktuell enthalten:
+
+- Commerce-KPI-Seite mit Order-Volumen, Umsatz, Lieferquote und Payment-Split
+- Zeitliche Trends fuer Bestellungen und Umsatz
+- Kategorien- und Regionenanalysen inklusive Heatmap
+- Retailrocket-Sessionanalyse mit Event-Funnel
+- Wetter- und FX-Kontext
+- Pipeline-Status mit Ingestion-Audit und Tabellenuebersicht
+
+Filter:
+
+- Zeitraum
+- Bestellstatus
+- Produktkategorie
+- Bundesstaat
+- Zahlungsart
+
+Deployment-Pfade:
+
+- lokal per `make run-dashboard`
+- im Compose-Stack per `docker compose up -d dashboard`
+- in GCP als Cloud-Run-Zielarchitektur
+
+---
+
 ## GCP- und Terraform-Fundament
 
 [infra/terraform/gcp](infra/terraform/gcp):
@@ -864,6 +955,8 @@ Zugang: `http://localhost:8080` nach `docker compose up -d`
 - Service-Konto mit BigQuery-Admin und Storage-Admin
 - 2 GCS-Buckets (Raw, Processed) mit Versioning und 30-Tage-Lifecycle
 - 3 BigQuery-Datasets: `commerce_raw`, `commerce_staging`, `commerce_marts`
+- 1 Artifact Registry Repository fuer Container-Images
+- 1 optionaler Cloud Run Service fuer das Streamlit-Dashboard
 - Location: `US` (kompatibel mit Public Datasets)
 
 ---
@@ -875,8 +968,9 @@ Zugang: `http://localhost:8080` nach `docker compose up -d`
 | Workflow | Trigger | Prueft |
 |---|---|---|
 | [lint.yml](.github/workflows/lint.yml) | push main + PRs | `pre-commit run --all-files` |
-| [tests.yml](.github/workflows/tests.yml) | push main + PRs | `pytest` (11 Tests) |
+| [tests.yml](.github/workflows/tests.yml) | push main + PRs | `pytest` (13 Tests) |
 | [dbt-checks.yml](.github/workflows/dbt-checks.yml) | push main + PRs | `dbt parse` + `dbt build` (DuckDB CI-Profil) |
+| [integration.yml](.github/workflows/integration.yml) | push main + PRs | PostgreSQL-Service, Batch/Streaming/Quality/dbt-End-to-End und Docker-Builds |
 
 Alle Workflows nutzen Python 3.11 und laufen auf `ubuntu-latest`.
 
@@ -909,7 +1003,7 @@ make run-quality
 ### Bereits erfolgreich geprueft
 
 - `ruff check .` -- sauber
-- `pytest` -- 11/11 gruen
+- `pytest` -- 13/13 gruen
 - `make run-warehouse` inklusive `dbt build` -- sauber
 - `make run-quality` mit sauberem Skip-Verhalten ohne erreichbares PostgreSQL
 
@@ -923,7 +1017,7 @@ make run-quality
 - MongoDB wird als Raw-Store vorbereitet, aber noch nicht mit langfristiger Retention-Strategie
 - BigQuery ist architektonisch vorbereitet, aber nicht komplett durchdeployt
 - Kestra startet reale Entry-Points, aber noch ohne dediziertes Runtime-Image
-- Dashboard (Streamlit/Looker) ist noch nicht implementiert
+- Cloud Run ist vorbereitet, aber noch ohne produktive Secret-Injektion und ohne finalen Datenbank-Zielpfad
 
 ---
 
@@ -931,11 +1025,11 @@ make run-quality
 
 - echte Olist-Rohdaten per Kaggle-Downloadpfad anstelle lokaler Seeds einbinden
 - vollstaendige Retailrocket-Dateien automatisiert laden und replayen
-- Streamlit-Dashboard mit Commerce-KPIs und Session-Analysen (mind. 2 Tiles: kategorisch + zeitlich)
 - Replay zu einem dauerhaften Consumer-/Streaming-Job weiterentwickeln
 - inkrementelle dbt-Strategien ergaenzen
 - Source Freshness und Exposures in dbt aufbauen
 - Datenqualitaetspruefungen in Orchestrierungs-Alerts integrieren
+- Dashboard fuer Cloud mit BigQuery oder Cloud-SQL-Verbindung finalisieren
 - BigQuery-Zielpfad mit echten GCP-Credentials und Remote State produktionsnaeher machen
 - BigQuery-spezifische Starter-Modelle fuer `ga4_obfuscated_sample_ecommerce` und `thelook_ecommerce` ergaenzen
 

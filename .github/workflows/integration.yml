@@ -103,3 +103,8 @@ jobs:
           PGPASSWORD=commerce psql -h localhost -U commerce -d commerce_platform -c "
             SELECT count(*) as cnt FROM staging.fct_commerce_orders;
           " | grep -qE "[1-9]"
+
+      - name: Build Docker images
+        run: |
+          docker build --target pipeline -t omnichannel-platform-pipeline:test .
+          docker build --target dashboard -t omnichannel-platform-dashboard:test .

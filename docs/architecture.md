@@ -13,6 +13,8 @@ realitätsnah eingebundenen Quellen:
 - MongoDB als Raw-Document-Store
 - PostgreSQL als lokales Raw- und Warehouse-Ziel
 - BigQuery als Cloud-Ziel inklusive öffentlicher Referenzdatensätze
+- Streamlit als lokales und containerisiertes Frontend
+- Cloud Run als Zielruntime für das Dashboard
 
 ## End-to-End Flow
 
@@ -29,6 +31,8 @@ PostgreSQL raw --> dbt staging --> dbt intermediate --> dbt marts --> BigQuery t
                                                             +--> spätere BigQuery-Referenzpfade:
                                                                  - bigquery-public-data.ga4_obfuscated_sample_ecommerce
                                                                  - bigquery-public-data.thelook_ecommerce
+                                                            |
+                                                            +--> Streamlit dashboard --> Docker Compose / Cloud Run
 ```
 
 ## Raw Layer
@@ -132,7 +136,8 @@ Kestra orchestriert aktuell den lokalen Starter-Ablauf:
 1. Batch-Ingestion
 2. Retailrocket-Replay
 3. Warehouse-Layer-Planung
-4. Quality-Ausführung
+4. dbt-Build
+5. Quality-Ausführung
 
 Der Flow bleibt bewusst shell-basiert, bis ein dediziertes Runtime-Image mit Python- und dbt-Stack
 eingeführt wird.
@@ -156,5 +161,7 @@ Terraform provisioniert aktuell Starter-Ressourcen in GCP für:
 - Raw- und Processed-GCS-Buckets
 - BigQuery-Datasets für raw, staging und marts
 - ein Plattform-Service-Konto inklusive IAM-Bindings
+- Artifact Registry für Container-Images
+- einen optionalen Cloud-Run-Service für das Streamlit-Dashboard
 
 Secrets, API-Aktivierung, Remote State und Umgebungs-Promotion bleiben weiterhin TODOs.

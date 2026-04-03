@@ -1,0 +1,522 @@
+"""Streamlit dashboard for the Omnichannel Commerce Data Platform."""
+
+from __future__ import annotations
+
+from datetime import date
+
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+import streamlit as st
+from sqlalchemy import create_engine
+
+from omnichannel_platform.dashboard.logic import (
+    apply_order_filters,
+    build_table_stats,
+    dashboard_database_url,
+    derive_commerce_insights,
+    derive_session_insights,
+    raw_schema,
+    warehouse_schema,
+)
+
+st.set_page_config(
+    page_title="Omnichannel Commerce Data Platform",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+st.markdown(
+    """
+    <style>
+    .stApp {
+        background:
+            radial-gradient(circle at top right, rgba(241, 196, 15, 0.08), transparent 32%),
+            linear-gradient(180deg, #f6f4ef 0%, #ffffff 30%, #f9fafb 100%);
+    }
+    .block-container {
+        padding-top: 1.8rem;
+        padding-bottom: 2rem;
+    }
+    .dashboard-hero {
+        padding: 1.2rem 1.4rem;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.82);
+        backdrop-filter: blur(8px);
+        margin-bottom: 1rem;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+WAREHOUSE_SCHEMA = warehouse_schema()
+RAW_SCHEMA = raw_schema()
+
+
+@st.cache_resource
+def get_engine():
+    return create_engine(dashboard_database_url())
+
+
+@st.cache_data(ttl=300)
+def load_dataframe(query: str) -> pd.DataFrame:
+    return pd.read_sql(query, get_engine())
+
+
+def load_datasets() -> dict[str, pd.DataFrame]:
+    return {
+        "orders": load_dataframe(f"select * from {WAREHOUSE_SCHEMA}.fct_commerce_orders"),
+        "sessions": load_dataframe(f"select * from {WAREHOUSE_SCHEMA}.fct_retailrocket_sessions"),
+        "products": load_dataframe(f"select * from {WAREHOUSE_SCHEMA}.dim_products"),
+        "weather": load_dataframe(f"select * from {RAW_SCHEMA}.open_meteo_weather"),
+        "fx": load_dataframe(f"select * from {RAW_SCHEMA}.frankfurter_fx_rates"),
+        "audit": load_dataframe(
+            f"select * from {RAW_SCHEMA}.ingestion_audit order by loaded_at desc"
+        ),
+    }
+
+
+def parse_dates(dataframes: dict[str, pd.DataFrame]) -> None:
+    orders = dataframes["orders"]
+    if not orders.empty:
+        orders["order_date"] = pd.to_datetime(orders["order_date"])
+        orders["order_purchase_ts"] = pd.to_datetime(orders["order_purchase_ts"])
+
+    sessions = dataframes["sessions"]
+    if not sessions.empty:
+        sessions["session_start_ts"] = pd.to_datetime(sessions["session_start_ts"])
+        sessions["session_end_ts"] = pd.to_datetime(sessions["session_end_ts"])
+
+    weather = dataframes["weather"]
+    if not weather.empty:
+        weather["weather_date"] = pd.to_datetime(weather["weather_date"])
+
+    fx = dataframes["fx"]
+    if not fx.empty:
+        fx["rate_date"] = pd.to_datetime(fx["rate_date"])
+
+
+def selected_date_window(min_date: date, max_date: date) -> tuple[date | None, date | None]:
+    value = st.sidebar.date_input(
+        "Zeitraum",
+        value=(min_date, max_date),
+        min_value=min_date,
+        max_value=max_date,
+    )
+    if isinstance(value, tuple) and len(value) == 2:
+        return value[0], value[1]
+    if isinstance(value, list) and len(value) == 2:
+        return value[0], value[1]
+    if isinstance(value, date):
+        return value, value
+    return None, None
+
+
+def render_kpi_metrics(filtered_orders: pd.DataFrame) -> None:
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Bestellungen", f"{len(filtered_orders):,}")
+    col2.metric("Umsatz (BRL)", f"R$ {filtered_orders['payment_value_brl'].sum():,.2f}")
+    col3.metric(
+        "Durchschn. Bestellwert",
+        f"R$ {filtered_orders['payment_value_brl'].mean() if not filtered_orders.empty else 0:,.2f}",
+    )
+    col4.metric("Artikel gesamt", f"{int(filtered_orders['item_count'].sum()):,}")
+
+    col5, col6, col7, col8 = st.columns(4)
+    col5.metric("Kunden (unique)", f"{filtered_orders['customer_id'].nunique():,}")
+    col6.metric("Umsatz (USD)", f"$ {filtered_orders['payment_value_usd'].fillna(0).sum():,.2f}")
+    col7.metric(
+        "Durchschn. Fracht",
+        f"R$ {filtered_orders['freight_value'].mean() if not filtered_orders.empty else 0:,.2f}",
+    )
+    delivered_share = (
+        (filtered_orders["order_status"] == "delivered").mean() * 100
+        if not filtered_orders.empty
+        else 0
+    )
+    col8.metric("Lieferquote", f"{delivered_share:.1f}%")
+
+
+def main() -> None:
+    st.markdown(
+        """
+        <div class="dashboard-hero">
+            <h1>Omnichannel Commerce Data Platform</h1>
+            <p>
+                End-to-end Uebersicht ueber Batch, Streaming, Warehouse, Data Quality und
+                Commerce-Insights auf Basis realer Quellen und lokaler Starter-Pipelines.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    try:
+        dataframes = load_datasets()
+    except Exception as exc:
+        st.error(f"Datenbankverbindung fehlgeschlagen: {exc}")
+        st.info(
+            "Bitte zuerst den Plattform-Stack und die Pipeline starten:\n\n"
+            "```bash\n"
+            "docker compose up -d\n"
+            "make run-batch\n"
+            "make run-streaming\n"
+            "make run-warehouse\n"
+            "make run-quality\n"
+            "```"
+        )
+        return
+
+    parse_dates(dataframes)
+    orders = dataframes["orders"]
+
+    st.sidebar.title("Navigation")
+    pages = [
+        "Commerce KPIs",
+        "Zeitliche Trends",
+        "Kategorien & Regionen",
+        "Session-Analyse",
+        "Wetter & FX",
+        "Pipeline-Status",
+    ]
+    page = st.sidebar.radio("Seite", pages)
+
+    if orders.empty:
+        st.warning("Noch keine Bestelldaten im Warehouse. Bitte Batch und dbt zuerst ausfuehren.")
+        return
+
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("Order-Filter")
+
+    min_date = orders["order_date"].min().date()
+    max_date = orders["order_date"].max().date()
+    start_date, end_date = selected_date_window(min_date, max_date)
+
+    selected_statuses = st.sidebar.multiselect(
+        "Bestellstatus",
+        options=sorted(orders["order_status"].dropna().unique()),
+        default=sorted(orders["order_status"].dropna().unique()),
+    )
+    selected_categories = st.sidebar.multiselect(
+        "Produktkategorie",
+        options=sorted(orders["product_category_name"].dropna().unique()),
+        default=sorted(orders["product_category_name"].dropna().unique()),
+    )
+    selected_states = st.sidebar.multiselect(
+        "Bundesstaat",
+        options=sorted(orders["customer_state"].dropna().unique()),
+        default=sorted(orders["customer_state"].dropna().unique()),
+    )
+    selected_payment_types = st.sidebar.multiselect(
+        "Zahlungsart",
+        options=sorted(orders["payment_type"].dropna().unique()),
+        default=sorted(orders["payment_type"].dropna().unique()),
+    )
+
+    filtered_orders = apply_order_filters(
+        orders,
+        start_date=start_date,
+        end_date=end_date,
+        statuses=selected_statuses,
+        categories=selected_categories,
+        states=selected_states,
+        payment_types=selected_payment_types,
+    )
+
+    st.sidebar.caption(f"Gefilterte Bestellungen: {len(filtered_orders):,} / {len(orders):,}")
+
+    if page == "Commerce KPIs":
+        st.subheader("Commerce KPIs")
+        render_kpi_metrics(filtered_orders)
+
+        insight_columns = st.columns(len(derive_commerce_insights(filtered_orders)))
+        for column, insight in zip(
+            insight_columns, derive_commerce_insights(filtered_orders), strict=False
+        ):
+            column.info(insight)
+
+        status_counts = filtered_orders["order_status"].value_counts().reset_index()
+        status_counts.columns = ["Status", "Anzahl"]
+        payment_counts = filtered_orders["payment_type"].value_counts().reset_index()
+        payment_counts.columns = ["Zahlungsart", "Anzahl"]
+
+        col1, col2 = st.columns(2)
+        col1.plotly_chart(
+            px.pie(
+                status_counts,
+                names="Status",
+                values="Anzahl",
+                color_discrete_sequence=px.colors.qualitative.Set2,
+            ),
+            use_container_width=True,
+        )
+        col2.plotly_chart(
+            px.bar(
+                payment_counts,
+                x="Zahlungsart",
+                y="Anzahl",
+                color="Zahlungsart",
+                color_discrete_sequence=px.colors.qualitative.Pastel,
+            ),
+            use_container_width=True,
+        )
+
+    elif page == "Zeitliche Trends":
+        st.subheader("Zeitliche Trends")
+        frequency = st.radio("Aggregation", ["Tag", "Woche", "Monat"], horizontal=True)
+        freq_map = {"Tag": "D", "Woche": "W", "Monat": "ME"}
+
+        time_frame = filtered_orders.copy()
+        time_frame["period"] = (
+            time_frame["order_date"].dt.to_period(freq_map[frequency]).dt.to_timestamp()
+        )
+        grouped = (
+            time_frame.groupby("period")
+            .agg(
+                order_count=("order_id", "count"),
+                revenue_brl=("payment_value_brl", "sum"),
+                avg_items=("item_count", "mean"),
+            )
+            .reset_index()
+        )
+
+        st.plotly_chart(
+            px.bar(grouped, x="period", y="order_count", title="Bestellungen pro Zeitraum"),
+            use_container_width=True,
+        )
+        st.plotly_chart(
+            px.area(grouped, x="period", y="revenue_brl", title="Umsatzentwicklung (BRL)"),
+            use_container_width=True,
+        )
+
+        category_time = (
+            time_frame.groupby(["period", "product_category_name"])["payment_value_brl"]
+            .sum()
+            .reset_index()
+        )
+        st.plotly_chart(
+            px.area(
+                category_time,
+                x="period",
+                y="payment_value_brl",
+                color="product_category_name",
+                title="Umsatz nach Kategorie",
+            ),
+            use_container_width=True,
+        )
+
+    elif page == "Kategorien & Regionen":
+        st.subheader("Kategorien & Regionen")
+
+        top_categories = (
+            filtered_orders.groupby("product_category_name")["payment_value_brl"]
+            .sum()
+            .sort_values(ascending=True)
+            .tail(10)
+            .reset_index()
+        )
+        top_states = (
+            filtered_orders.groupby("customer_state")["order_id"]
+            .count()
+            .sort_values(ascending=True)
+            .tail(10)
+            .reset_index()
+        )
+
+        col1, col2 = st.columns(2)
+        col1.plotly_chart(
+            px.bar(
+                top_categories,
+                x="payment_value_brl",
+                y="product_category_name",
+                orientation="h",
+                title="Top Kategorien nach Umsatz",
+                color_discrete_sequence=["#b5554f"],
+            ),
+            use_container_width=True,
+        )
+        col2.plotly_chart(
+            px.bar(
+                top_states,
+                x="order_id",
+                y="customer_state",
+                orientation="h",
+                title="Top Bundesstaaten nach Bestellungen",
+                color_discrete_sequence=["#26547c"],
+            ),
+            use_container_width=True,
+        )
+
+        heatmap = filtered_orders.pivot_table(
+            values="payment_value_brl",
+            index="product_category_name",
+            columns="customer_state",
+            aggfunc="sum",
+            fill_value=0,
+        )
+        st.plotly_chart(
+            px.imshow(
+                heatmap,
+                aspect="auto",
+                color_continuous_scale="Viridis",
+                title="Umsatz-Heatmap: Kategorie x Bundesstaat",
+            ),
+            use_container_width=True,
+        )
+
+    elif page == "Session-Analyse":
+        sessions = dataframes["sessions"]
+        st.subheader("Session-Analyse")
+
+        if sessions.empty:
+            st.warning("Keine Session-Daten vorhanden. Bitte `make run-streaming` ausfuehren.")
+            return
+
+        session_columns = st.columns(4)
+        session_columns[0].metric("Sessions", f"{len(sessions):,}")
+        session_columns[1].metric("Unique Visitors", f"{sessions['visitor_id'].nunique():,}")
+        session_columns[2].metric("Events/Session", f"{sessions['event_count'].mean():.1f}")
+        conversion_rate = (sessions["transaction_count"] > 0).mean() * 100
+        session_columns[3].metric("Conversion Rate", f"{conversion_rate:.1f}%")
+
+        for insight in derive_session_insights(sessions):
+            st.info(insight)
+
+        event_totals = pd.DataFrame(
+            {
+                "Event-Typ": ["Views", "Add to Cart", "Transactions"],
+                "Anzahl": [
+                    sessions["view_count"].sum(),
+                    sessions["addtocart_count"].sum(),
+                    sessions["transaction_count"].sum(),
+                ],
+            }
+        )
+        col1, col2 = st.columns(2)
+        col1.plotly_chart(
+            px.bar(
+                event_totals,
+                x="Event-Typ",
+                y="Anzahl",
+                color="Event-Typ",
+                color_discrete_sequence=["#26547c", "#f4a259", "#2a9d8f"],
+            ),
+            use_container_width=True,
+        )
+        col2.plotly_chart(
+            go.Figure(
+                go.Funnel(
+                    y=event_totals["Event-Typ"],
+                    x=event_totals["Anzahl"],
+                    textinfo="value+percent initial",
+                )
+            ),
+            use_container_width=True,
+        )
+
+        st.plotly_chart(
+            px.histogram(
+                sessions,
+                x="event_count",
+                nbins=20,
+                title="Verteilung der Events pro Session",
+                color_discrete_sequence=["#7b2cbf"],
+            ),
+            use_container_width=True,
+        )
+
+    elif page == "Wetter & FX":
+        st.subheader("Wetter & FX")
+        weather = dataframes["weather"]
+        fx = dataframes["fx"]
+
+        if not weather.empty:
+            st.plotly_chart(
+                px.line(
+                    weather,
+                    x="weather_date",
+                    y="avg_temperature_c",
+                    color="city",
+                    title="Temperaturverlauf",
+                ),
+                use_container_width=True,
+            )
+            st.plotly_chart(
+                px.bar(
+                    weather,
+                    x="weather_date",
+                    y="precipitation_mm",
+                    color="city",
+                    title="Niederschlag",
+                ),
+                use_container_width=True,
+            )
+
+        if not fx.empty:
+            st.plotly_chart(
+                px.line(
+                    fx,
+                    x="rate_date",
+                    y="fx_rate",
+                    color="quote_currency",
+                    title="EUR/USD und EUR/BRL Wechselkurse",
+                ),
+                use_container_width=True,
+            )
+
+        correlation_frame = filtered_orders.dropna(
+            subset=["avg_temperature_c", "payment_value_brl"]
+        )
+        if not correlation_frame.empty:
+            st.plotly_chart(
+                px.scatter(
+                    correlation_frame,
+                    x="avg_temperature_c",
+                    y="payment_value_brl",
+                    color="customer_state",
+                    opacity=0.55,
+                    title="Temperatur vs. Bestellwert",
+                ),
+                use_container_width=True,
+            )
+
+    elif page == "Pipeline-Status":
+        st.subheader("Pipeline-Status")
+
+        audit = dataframes["audit"]
+        if not audit.empty:
+            st.dataframe(
+                audit[["source_name", "batch_id", "row_count", "loaded_at"]],
+                use_container_width=True,
+            )
+
+        stats = build_table_stats(
+            {
+                "fct_commerce_orders": dataframes["orders"],
+                "fct_retailrocket_sessions": dataframes["sessions"],
+                "dim_products": dataframes["products"],
+                "open_meteo_weather": dataframes["weather"],
+                "frankfurter_fx_rates": dataframes["fx"],
+            }
+        )
+        st.dataframe(stats, use_container_width=True)
+
+        st.markdown(
+            """
+            | Komponente | Technologie |
+            |---|---|
+            | Warehouse | PostgreSQL 18 |
+            | Streaming | Redpanda v25.3.9 |
+            | Document Store | MongoDB 7 |
+            | Transformation | dbt |
+            | Orchestrierung | Kestra v1.1 |
+            | Dashboard | Streamlit + Plotly |
+            | Cloud Ziel | Cloud Run + BigQuery |
+            """
+        )
+
+
+if __name__ == "__main__":
+    main()

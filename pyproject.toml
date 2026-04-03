@@ -55,9 +55,11 @@ spark = [
   "pyspark>=3.5,<4.0",
 ]
 dashboard = [
+  "pandas>=2.3,<3.0",
   "streamlit>=1.38,<2.0",
   "plotly>=5.24,<6.0",
   "psycopg[binary]>=3.2,<4.0",
+  "sqlalchemy>=2.0.44",
 ]
 all = [
   "omnichannel-commerce-data-platform[batch,streaming,warehouse,nosql,quality,spark,dashboard]",

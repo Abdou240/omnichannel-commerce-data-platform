@@ -38,9 +38,13 @@ tasks:
     commands:
       - python -m omnichannel_platform.warehouse.layer_catalog --env {{ inputs.environment }}
 
-  - id: dbt_build_note
-    type: io.kestra.plugin.core.log.Log
-    message: "TODO: run dbt build inside a Python/dbt-capable image or worker once runtime packaging is added."
+  - id: dbt_build
+    type: io.kestra.plugin.scripts.shell.Commands
+    warningOnStdErr: false
+    commands:
+      - mkdir -p .dbt storage/warehouse
+      - cp warehouse/dbt/profiles.ci.yml .dbt/profiles.yml
+      - WAREHOUSE_PATH=storage/warehouse/local.duckdb dbt build --project-dir warehouse/dbt --profiles-dir .dbt
 
   - id: run_quality
     type: io.kestra.plugin.scripts.shell.Commands
@@ -55,4 +59,4 @@ tasks:
 # TODO:
 # - run these tasks inside a dedicated image that includes the project extras
 # - parameterize namespace, secrets, and dbt target before promoting beyond local development
-# - replace the dbt note with a real `dbt build` task once the runtime packaging is in place
+# - move dbt execution into a packaged worker image before production use

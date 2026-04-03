@@ -6,3 +6,17 @@ environment           = "dev"
 gcs_storage_class     = "STANDARD"
 raw_bucket_name       = "your-project-raw-data"
 processed_bucket_name = "your-project-processed-data"
+artifact_registry_repository_id = "omnichannel-platform"
+dashboard_service_name          = "omnichannel-dashboard"
+dashboard_container_image       = "us-central1-docker.pkg.dev/your-gcp-project-id/omnichannel-platform/dashboard:latest"
+dashboard_allow_unauthenticated = true
+
+dashboard_env_vars = {
+  DASHBOARD_WAREHOUSE_SCHEMA = "staging"
+  DASHBOARD_RAW_SCHEMA       = "raw"
+  POSTGRES_DB                = "commerce_platform"
+  POSTGRES_HOST              = "TODO_CLOUD_SQL_OR_PRIVATE_POSTGRES_HOST"
+  POSTGRES_PASSWORD          = "TODO_SECRET_OR_RUNTIME_INJECTION"
+  POSTGRES_PORT              = "5432"
+  POSTGRES_USER              = "TODO_RUNTIME_USER"
+}
