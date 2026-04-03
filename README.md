@@ -153,13 +153,13 @@ Raw-Document-Store für JSON-Payloads und Replay-Artefakte.
 Retailrocket JSONL -> Replay -> Kafka/Redpanda Topics -> PostgreSQL raw + MongoDB raw
 ```
 
-Eine ergänzende Architekturübersicht liegt in [docs/architecture.md](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/docs/architecture.md).
+Eine ergänzende Architekturübersicht liegt in [docs/architecture.md](docs/architecture.md).
 
 ## Datenfluss im Detail
 
 ### 1. Batch-Ingestion
 
-Die Batch-Pipeline in [commerce_batch_ingestion.py](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/src/omnichannel_platform/batch/commerce_batch_ingestion.py) übernimmt:
+Die Batch-Pipeline in [commerce_batch_ingestion.py](src/omnichannel_platform/batch/commerce_batch_ingestion.py) übernimmt:
 
 - Bereitstellung oder Erzeugung lokaler Olist-Dateien
 - Laden der Olist-Tabellen in `raw.*`
@@ -174,7 +174,7 @@ ungeschnittenen Raw-Dokumenten.
 
 ### 2. Streaming-Replay
 
-Die Streaming-Pipeline in [clickstream_consumer.py](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/src/omnichannel_platform/streaming/clickstream_consumer.py) übernimmt:
+Die Streaming-Pipeline in [clickstream_consumer.py](src/omnichannel_platform/streaming/clickstream_consumer.py) übernimmt:
 
 - Lesen von Retailrocket-Events aus `data/sample/streaming/retailrocket_events.jsonl`
 - Normalisierung der Event-Struktur
@@ -206,7 +206,7 @@ Die Datenqualitätslogik kombiniert:
 - deklarative Verträge unter `quality/contracts/`
 - SQL-Erwartungen unter `quality/expectations/`
 - dbt-Tests auf Modell- und Spaltenebene
-- einen Python-Runner in [rules_catalog.py](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/src/omnichannel_platform/quality/rules_catalog.py)
+- einen Python-Runner in [rules_catalog.py](src/omnichannel_platform/quality/rules_catalog.py)
 
 Das Ziel ist eine klare Trennung zwischen:
 
@@ -278,12 +278,12 @@ Das Ziel ist eine klare Trennung zwischen:
 
 Wichtige Dateien:
 
-- [docker-compose.yml](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/docker-compose.yml)
-- [Makefile](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/Makefile)
-- [config/base.yaml](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/config/base.yaml)
-- [config/dev.yaml](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/config/dev.yaml)
-- [warehouse/dbt/dbt_project.yml](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/warehouse/dbt/dbt_project.yml)
-- [orchestration/kestra/flows/daily_platform_ingestion.yml](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/orchestration/kestra/flows/daily_platform_ingestion.yml)
+- [docker-compose.yml](docker-compose.yml)
+- [Makefile](Makefile)
+- [config/base.yaml](config/base.yaml)
+- [config/dev.yaml](config/dev.yaml)
+- [warehouse/dbt/dbt_project.yml](warehouse/dbt/dbt_project.yml)
+- [orchestration/kestra/flows/daily_platform_ingestion.yml](orchestration/kestra/flows/daily_platform_ingestion.yml)
 
 ## Lokales Setup
 
@@ -306,7 +306,7 @@ make install-local
 
 ### 2. Umgebungsvariablen
 
-Die Vorlage liegt in [.env.example](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/.env.example).
+Die Vorlage liegt in [.env.example](.env.example).
 
 Typische lokale Variablen:
 
@@ -442,26 +442,26 @@ Die Staging-Modelle harmonisieren Datentypen, Benennungen und Basisnormalisierun
 
 Beispiele:
 
-- [stg_olist_orders.sql](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/warehouse/dbt/models/staging/stg_olist_orders.sql)
-- [stg_retailrocket_events.sql](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/warehouse/dbt/models/staging/stg_retailrocket_events.sql)
-- [stg_dummyjson_products.sql](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/warehouse/dbt/models/staging/stg_dummyjson_products.sql)
+- [stg_olist_orders.sql](warehouse/dbt/models/staging/stg_olist_orders.sql)
+- [stg_retailrocket_events.sql](warehouse/dbt/models/staging/stg_retailrocket_events.sql)
+- [stg_dummyjson_products.sql](warehouse/dbt/models/staging/stg_dummyjson_products.sql)
 
 ### Intermediate-Schicht
 
 Die Intermediate-Modelle bilden technische und fachliche Voraggregation:
 
-- [int_orders_with_context.sql](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/warehouse/dbt/models/intermediate/int_orders_with_context.sql)
+- [int_orders_with_context.sql](warehouse/dbt/models/intermediate/int_orders_with_context.sql)
   verbindet Orders mit Kunden, Artikeln, Payments, Wetter und FX
-- [int_retailrocket_sessions.sql](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/warehouse/dbt/models/intermediate/int_retailrocket_sessions.sql)
+- [int_retailrocket_sessions.sql](warehouse/dbt/models/intermediate/int_retailrocket_sessions.sql)
   sessionisiert Clickstream-Ereignisse mit einer Inaktivitätslücke von 30 Minuten
 
 ### Mart-Schicht
 
 Aktuelle Mart-Modelle:
 
-- [fct_commerce_orders.sql](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/warehouse/dbt/models/marts/fct_commerce_orders.sql)
-- [fct_retailrocket_sessions.sql](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/warehouse/dbt/models/marts/fct_retailrocket_sessions.sql)
-- [dim_products.sql](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/warehouse/dbt/models/marts/dim_products.sql)
+- [fct_commerce_orders.sql](warehouse/dbt/models/marts/fct_commerce_orders.sql)
+- [fct_retailrocket_sessions.sql](warehouse/dbt/models/marts/fct_retailrocket_sessions.sql)
+- [dim_products.sql](warehouse/dbt/models/marts/dim_products.sql)
 
 Diese Modelle sind bewusst Starter und keine „fake business perfected marts“. Sie zeigen die
 Richtung, nicht den endgültigen Fachschnitt.
@@ -470,9 +470,9 @@ Richtung, nicht den endgültigen Fachschnitt.
 
 Qualitätsartefakte liegen in:
 
-- [quality/contracts](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/quality/contracts)
-- [quality/expectations](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/quality/expectations)
-- [warehouse/dbt/tests](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/warehouse/dbt/tests)
+- [quality/contracts](quality/contracts)
+- [quality/expectations](quality/expectations)
+- [warehouse/dbt/tests](warehouse/dbt/tests)
 
 Beispiele für Checks:
 
@@ -490,7 +490,7 @@ unnötig „rot“ erscheinen zu lassen.
 
 ## Orchestrierung mit Kestra
 
-Der Flow [daily_platform_ingestion.yml](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/orchestration/kestra/flows/daily_platform_ingestion.yml) bildet den aktuellen lokalen Ablauf ab:
+Der Flow [daily_platform_ingestion.yml](orchestration/kestra/flows/daily_platform_ingestion.yml) bildet den aktuellen lokalen Ablauf ab:
 
 1. Batch-Ingestion
 2. Retailrocket-Replay
@@ -503,7 +503,7 @@ bereits enthalten sind.
 
 ## Spark-Pfad
 
-Unter [spark/jobs/clickstream_sessionization.py](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/spark/jobs/clickstream_sessionization.py) gibt es einen echten Starter für Sessionisierung:
+Unter [spark/jobs/clickstream_sessionization.py](spark/jobs/clickstream_sessionization.py) gibt es einen echten Starter für Sessionisierung:
 
 - liest die Retailrocket-Beispieldatei
 - bildet Sessions auf Basis eines 30-Minuten-Gaps
@@ -514,7 +514,7 @@ spätere Skalierung.
 
 ## GCP- und Terraform-Fundament
 
-Das GCP-Fundament unter [infra/terraform/gcp](/Users/abderrahmenmansour/Desktop/datatalks/ETL_projekt/omnichannel-commerce-data-platform/infra/terraform/gcp) enthält aktuell:
+Das GCP-Fundament unter [infra/terraform/gcp](infra/terraform/gcp) enthält aktuell:
 
 - Google-Provider `5.6.0`
 - Service-Konto
