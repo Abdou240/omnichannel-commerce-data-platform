@@ -15,25 +15,35 @@ lokalem Entwicklungs-Setup und spaeterer Cloud-Zielarchitektur.
 
 ## Inhaltsverzeichnis
 
+**Ueberblick:**
 - [Projektziel](#projektziel)
 - [Fachlicher Umfang](#fachlicher-umfang)
 - [Datenquellen](#datenquellen)
 - [Architektur auf einen Blick](#architektur-auf-einen-blick)
-- [Datenfluss im Detail](#datenfluss-im-detail)
 - [Technologiestack](#technologiestack)
 - [Repository-Struktur](#repository-struktur)
-- [Lokales Setup](#lokales-setup)
-- [Schritt-fuer-Schritt Testanleitung](#schritt-fuer-schritt-testanleitung)
+
+**Teil 1 -- Setup:**
+- [Lokales Setup](#lokales-setup) (Python, .env, Docker Stack)
+- [Setup-Referenz](#setup-referenz) (Details zu Extras, Umgebungsvariablen, Compose-Stack)
 - [Zentrale Make-Targets](#zentrale-make-targets)
-- [Was aktuell implementiert ist](#was-aktuell-implementiert-ist)
+
+**Teil 2 -- Python-Skripte, Tests und Pipeline-Ausfuehrung:**
+- [Datenfluss im Detail](#datenfluss-im-detail) (Batch, Streaming, dbt, Quality, kompletter Durchlauf)
+- [Schritt-fuer-Schritt Testanleitung](#schritt-fuer-schritt-testanleitung)
 - [Warehouse- und dbt-Modellierung](#warehouse--und-dbt-modellierung)
 - [Datenqualitaet](#datenqualitaet)
 - [Orchestrierung mit Kestra](#orchestrierung-mit-kestra)
 - [Spark-Pfad](#spark-pfad)
 - [Dashboard und Frontend](#dashboard-und-frontend)
+
+**Teil 3 -- Deployment und Cloud:**
+- [Containerisierung mit Docker](#containerisierung-mit-docker)
 - [GCP- und Terraform-Fundament](#gcp--und-terraform-fundament)
 - [CI/CD-Pipeline](#cicd-pipeline)
-- [Validierung und Entwicklung](#validierung-und-entwicklung)
+
+**Abschluss:**
+- [Was aktuell implementiert ist](#was-aktuell-implementiert-ist)
 - [Aktuelle Grenzen](#aktuelle-grenzen)
 - [Naechste sinnvolle Ausbaustufen](#naechste-sinnvolle-ausbaustufen)
 
@@ -210,13 +220,195 @@ Eine ergaenzende Architekturuebersicht liegt in [docs/architecture.md](docs/arch
 
 ---
 
+## Technologiestack
+
+| Kategorie | Technologie | Version |
+|---|---|---|
+| Datenbank (lokal) | PostgreSQL | 18 |
+| Streaming Broker | Redpanda | v25.3.9 |
+| Document Store | MongoDB | 7 |
+| Object Storage (lokal) | MinIO | latest |
+| Orchestrierung | Kestra | v1.1 |
+| Transformation | dbt | >=1.9 |
+| Batch Processing | Spark / PySpark | >=3.5 |
+| IaC | Terraform (Google Provider) | 5.6.0 |
+| Cloud Warehouse | BigQuery | (Zielarchitektur) |
+| Cloud Storage | GCS | (Zielarchitektur) |
+| Frontend | Streamlit + Plotly | >=1.38 / >=5.24 |
+| Container | Docker / Docker Compose | latest |
+| Cloud App Runtime | Cloud Run | (Zielarchitektur) |
+| Python | Python | >=3.11 |
+| Build Tool | uv / pip | latest |
+| Linting | ruff | >=0.6 |
+| Testing | pytest | >=8.0 |
+| CI/CD | GitHub Actions | 4 Workflows |
+
+---
+
+## Repository-Struktur
+
+```text
+.
+├── .dockerignore                    # Schlanker Docker-Build-Context
+├── .github/workflows/              # CI: lint, pytest, dbt-checks, integration
+├── Dockerfile                       # Multi-Stage Build (pipeline + dashboard)
+├── docker-compose.yml               # 9 Services (Postgres, Redpanda, Kestra, ...)
+├── Makefile                         # Alle Make-Targets
+├── pyproject.toml                   # Python-Abhaengigkeiten und Extras
+├── dashboard/                       # Streamlit-Frontend (app.py)
+├── config/                          # Basis-, Dev- und Prod-Konfiguration
+│   ├── base.yaml                    # Alle Quellen, Warehouse, Orchestrierung
+│   ├── dev.yaml                     # Lokale Overrides (Kafka, Geo, etc.)
+│   └── prod.yaml                    # Cloud-Platzhalter
+├── data/sample/                     # Kleine lokale Beispiel- und Replay-Daten
+│   ├── batch/                       # Olist-Manifest, Open Food Facts Sample
+│   └── streaming/                   # Retailrocket JSONL (3 Events)
+├── docs/                            # Architektur, ADRs, Runbooks
+├── infra/terraform/gcp/             # GCP-Grundgeruest (Buckets, Datasets, IAM, Cloud Run)
+├── kafka/                           # Topic-Katalog und create_topics.sh
+├── nosql/mongodb/                   # init.js fuer Collections und Indexes
+├── orchestration/kestra/flows/      # Kestra-Flow (daily_platform_ingestion)
+├── quality/
+│   ├── contracts/                   # 4 YAML-Vertraege
+│   └── expectations/                # 4 SQL-Checks (fx_rates, order_statuses, etc.)
+├── spark/jobs/                      # clickstream_sessionization.py
+├── sql/postgres/init/               # Schema-Init + Raw-Tabellen-DDL
+├── src/omnichannel_platform/
+│   ├── batch/                       # commerce_batch_ingestion, source_plans, orders_ingestion
+│   ├── common/                      # logging, settings, clients (Postgres/Mongo), io
+│   ├── dashboard/                   # testbare Dashboard-Logik (logic.py)
+│   ├── quality/                     # rules_catalog (SQL-Runner + Report)
+│   ├── streaming/                   # clickstream_consumer (Replay + Kafka + Persist)
+│   └── warehouse/                   # layer_catalog
+├── tests/
+│   ├── fixtures/                    # sample_orders.json, sample_clickstream_events.jsonl
+│   ├── unit/                        # 5 Testdateien, 13 Tests
+│   └── integration/                 # Repository-Foundation-Check
+└── warehouse/
+    ├── dbt/
+    │   ├── macros/                  # raw_relations.sql (source-aware Fallback)
+    │   ├── models/
+    │   │   ├── staging/             # 9 Staging Views
+    │   │   ├── intermediate/        # 2 Intermediate Views
+    │   │   └── marts/               # 3 Mart Tables
+    │   ├── tests/                   # 3 Singular Tests
+    │   ├── dbt_project.yml
+    │   ├── profiles.ci.yml          # DuckDB CI-Profil
+    │   └── profiles.yml.example     # Postgres/DuckDB/BigQuery Multi-Target
+    └── seeds/                       # (bereit fuer Referenzdaten)
+```
+
+Wichtige Einstiegspunkte:
+
+- [Dockerfile](Dockerfile) -- Multi-Stage Docker Build
+- [docker-compose.yml](docker-compose.yml) -- 9-Service Plattform-Stack
+- [dashboard/app.py](dashboard/app.py) -- Streamlit-Frontend
+- [src/omnichannel_platform/batch/commerce_batch_ingestion.py](src/omnichannel_platform/batch/commerce_batch_ingestion.py) -- Batch-Pipeline
+- [src/omnichannel_platform/streaming/clickstream_consumer.py](src/omnichannel_platform/streaming/clickstream_consumer.py) -- Streaming-Pipeline
+- [src/omnichannel_platform/quality/rules_catalog.py](src/omnichannel_platform/quality/rules_catalog.py) -- Quality-Runner
+- [orchestration/kestra/flows/daily_platform_ingestion.yml](orchestration/kestra/flows/daily_platform_ingestion.yml) -- Kestra-Orchestrierung
+- [infra/terraform/gcp/main.tf](infra/terraform/gcp/main.tf) -- GCP-Infrastruktur
+
+---
+
+## Lokales Setup
+
+> **Hinweis zu Python-Versionen:** Das Projekt unterstuetzt Python >=3.11. Alle Abhaengigkeiten
+> sind mit Python 3.11-3.14 getestet. Die Docker-Images und CI-Workflows nutzen Python 3.11.
+
+### Schnellstart fuer die Python-Skripte
+
+```bash
+# 1. Python-Umgebung
+python3 -m venv .venv
+source .venv/bin/activate
+make install-local
+
+# 2. Environment-Datei anlegen
+cp .env.example .env
+
+# 3. Mindest-Services fuer lokale Skript-Tests starten
+docker compose up -d postgres
+
+# Optional, aber empfohlen fuer den vollen E2E-Pfad:
+docker compose up -d mongo redpanda
+
+# 4. PostgreSQL pruefen
+docker compose exec postgres pg_isready -U commerce -d commerce_platform
+```
+
+**Wichtig:** Fuehre alle `python -m omnichannel_platform...` Befehle aus dem Repository-Root aus.
+
+### Welche Docker-Services braucht welches Skript?
+
+| Skript | Pflicht | Optional | Hinweis |
+|---|---|---|---|
+| `commerce_batch_ingestion.py` | `postgres` | `mongo` | Batch laedt immer nach PostgreSQL. Mongo-Persist wird bei Nicht-Erreichbarkeit uebersprungen. |
+| `clickstream_consumer.py` | `postgres` | `redpanda`, `mongo` | Replay persistiert immer nach PostgreSQL. Kafka- und Mongo-Schritte sind optional. |
+| `rules_catalog.py` | `postgres` | — | SQL-Checks brauchen die Raw-/Mart-Tabellen in PostgreSQL. |
+| `dashboard/app.py` | `postgres` | — | Dashboard liest aus Raw/Staging/Marts. |
+
+### Typische lokale Stolpersteine
+
+- `connection refused` auf `localhost:5432`: PostgreSQL laeuft nicht. Starte `docker compose up -d postgres`.
+- `localhost:27017 connection refused`: MongoDB laeuft nicht. Das ist fuer Batch und Streaming **kein** Blocker; Mongo-Persist wird uebersprungen.
+- Open Food Facts liefert `429 Too Many Requests`: Die Batch-Pipeline faellt automatisch auf das lokale Sample unter `data/sample/batch/open_food_facts_products_sample.json` zurueck.
+- `postgres` startet und beendet sich sofort mit einem Hinweis auf PostgreSQL 18: Dann ist meist ein altes lokales Docker-Volume inkompatibel.
+
+Wenn dir die alte lokale Entwicklungsdatenbank nicht wichtig ist, starte sauber neu:
+
+```bash
+docker compose down
+docker volume rm omnichannel-commerce-data-platform_postgres_data
+docker compose up -d postgres
+docker compose exec postgres pg_isready -U commerce -d commerce_platform
+```
+
+Wenn du die alten Daten behalten musst, solltest du das Volume nicht loeschen, sondern
+entweder auf die fruehere PostgreSQL-Version zurueckgehen oder das Volume per `pg_upgrade`
+migrieren.
+
+---
+
 ## Datenfluss im Detail
 
 ### 1. Batch-Ingestion (`commerce_batch_ingestion.py`)
 
 **Skript:** [commerce_batch_ingestion.py](src/omnichannel_platform/batch/commerce_batch_ingestion.py)
 
-**Starten:**
+**Was macht `commerce_batch_ingestion.py` kurz?**
+
+Das Skript ist der Batch-Einstiegspunkt fuer die lokale Raw-Layer-Befuellung.
+Es verarbeitet nacheinander vier Quellen:
+
+- `olist`: erzeugt oder liest lokale CSV-Snapshots und laedt sie in `raw.olist_*`
+- `open_food_facts`: ruft Produktdaten per API ab und laedt sie in `raw.open_food_facts_products`
+- `open_meteo`: holt Wetterdaten und laedt sie in `raw.open_meteo_weather`
+- `frankfurter`: holt FX-Raten und laedt sie in `raw.frankfurter_fx_rates`
+
+Zusaetzlich schreibt das Skript Bronze-Artefakte unter `storage/bronze/...` und protokolliert jeden Lauf
+in `raw.ingestion_audit`.
+
+**Pflicht vor dem Start: PostgreSQL vorbereiten**
+
+```bash
+docker compose up -d postgres
+docker compose ps postgres
+docker compose exec postgres pg_isready -U commerce -d commerce_platform
+```
+
+**Was machen diese drei Docker-Kommandos?**
+
+| Kommando | Bedeutung | Was wird gestartet / ausgefuehrt? |
+|---|---|---|
+| `docker compose up -d postgres` | Startet nur den PostgreSQL-Service aus `docker-compose.yml` im Hintergrund | Docker-Compose-Service: `postgres`, Container: `omnichannel-postgres` |
+| `docker compose ps postgres` | Zeigt den Status genau dieses Services | Kein neuer Container, nur Statusanzeige fuer `postgres` |
+| `docker compose exec postgres pg_isready -U commerce -d commerce_platform` | Fuehrt im laufenden PostgreSQL-Container das Healthcheck-Tool `pg_isready` aus | Befehl laeuft **im** Container `omnichannel-postgres` |
+
+**Wichtig:** `docker compose up -d postgres` startet **nicht** den ganzen Stack, sondern nur den Service
+`postgres`. Services wie `mongo`, `redpanda`, `dashboard` oder `kestra` bleiben dabei aus.
+
+**Dann den Batch starten:**
 
 ```bash
 # Alle 4 Quellen auf einmal (Standardverhalten)
@@ -243,14 +435,22 @@ make run-batch
 - PostgreSQL muss laufen (`docker compose up -d postgres`)
 - MongoDB und Redpanda sind optional (graceful Skip wenn nicht erreichbar)
 
+**Wenn direkt `connection refused` auf `localhost:5432` erscheint, fehlt fast immer genau dieser Schritt.**
+
+```bash
+docker compose up -d postgres
+docker compose ps postgres
+docker compose exec postgres pg_isready -U commerce -d commerce_platform
+```
+
 **Interner Ablauf pro Quelle:**
 
 | Quelle | Was passiert | Erwartete Zeilen | Artefakte |
 |---|---|---|---|
-| **olist** | 1. Prueft ob Seed-CSVs unter `storage/bronze/olist/` existieren. 2. Falls nicht: generiert deterministische Daten mit `random.Random(42)` (500 Orders, 250 Customers, 150 Products, ~1200 Items, 500 Payments). 3. Liest alle 5 CSVs, TRUNCATE + APPEND in `raw.olist_*`. 4. Schreibt Audit-Eintrag und Run-Manifest. | ~2600 total | `storage/bronze/olist/_runs/<batch_id>/run_manifest.json` |
+| **olist** | 1. Prueft ob Seed-CSVs unter `storage/bronze/olist/` existieren. 2. Falls nicht: generiert deterministische Daten mit `random.Random(42)` (500 Orders, 250 Customers, 150 Products, 1001 Items, 500 Payments). 3. Liest alle 5 CSVs, TRUNCATE + APPEND in `raw.olist_*`. 4. Schreibt Audit-Eintrag und Run-Manifest. | 2401 total | `storage/bronze/olist/_runs/<batch_id>/run_manifest.json` |
 | **open_food_facts** | 1. Ruft 4 konfigurierte Barcodes per API ab (z.B. Nutella, Coca-Cola). 2. Normalisiert Produktdaten (code, name, brands, categories, ecoscore). 3. Bei API-Fehler: Fallback auf `data/sample/batch/open_food_facts_products_sample.json`. 4. Speichert in `raw.open_food_facts_products` + optional MongoDB. | 3-4 Produkte | `storage/bronze/open_food_facts/products/_runs/<batch_id>/products_raw.jsonl` |
 | **open_meteo** | 1. Holt Tageswerte (Temperatur, Niederschlag) fuer 3 Staedte (Sao Paulo, Rio, Belo Horizonte) ueber 365 Tage (2018). 2. Bei API-Fehler: generiert 14 Fallback-Tage pro Stadt. 3. Speichert in `raw.open_meteo_weather` + optional MongoDB. | ~1095 (365 x 3) | `storage/bronze/open_meteo/weather/_runs/<batch_id>/weather_raw.jsonl` |
-| **frankfurter** | 1. Holt EUR->USD und EUR->BRL Wechselkurse fuer 2018. 2. Bei API-Fehler: generiert 14 Fallback-Tage mit 2 Waehrungen. 3. Speichert in `raw.frankfurter_fx_rates` + optional MongoDB. | ~520 (260 Handelstage x 2) | `storage/bronze/frankfurter/fx/_runs/<batch_id>/fx_rates_raw.jsonl` |
+| **frankfurter** | 1. Holt EUR->USD und EUR->BRL Wechselkurse fuer 2018. 2. Bei API-Fehler: generiert 14 Fallback-Tage mit 2 Waehrungen. 3. Speichert in `raw.frankfurter_fx_rates` + optional MongoDB. | ~730 (365 Tage x 2) | `storage/bronze/frankfurter/fx/_runs/<batch_id>/fx_rates_raw.jsonl` |
 
 **Erwartete Log-Ausgabe (Beispiel):**
 
@@ -262,7 +462,7 @@ INFO  Loaded 1200 rows from olist_order_items_dataset.csv into raw.olist_order_i
 INFO  Loaded 500 rows from olist_order_payments_dataset.csv into raw.olist_order_payments
 INFO  Loaded 500 rows from olist_orders_dataset.csv into raw.olist_orders
 INFO  Loaded 150 rows from olist_products_dataset.csv into raw.olist_products
-INFO  Source olist ingested 2600 rows
+INFO  Source olist ingested 2401 rows
 INFO  Requesting https://world.openfoodfacts.org/api/v2/product/3017620422003.json
 INFO  Requesting https://world.openfoodfacts.org/api/v2/product/5449000000996.json
 INFO  Requesting https://world.openfoodfacts.org/api/v2/product/7622210449283.json
@@ -270,8 +470,8 @@ INFO  Requesting https://world.openfoodfacts.org/api/v2/product/3274080005003.js
 INFO  Source open_food_facts ingested 4 rows
 INFO  Requesting https://archive-api.open-meteo.com/v1/archive?latitude=...
 INFO  Source open_meteo ingested 1095 rows
-INFO  Requesting https://api.frankfurter.dev/v2/rates/2018-01-01..2018-12-31?from=EUR&to=USD,BRL
-INFO  Source frankfurter ingested 520 rows
+INFO  Requesting https://api.frankfurter.dev/v2/rates?from=2018-01-01&to=2018-12-31&base=EUR&quotes=USD,BRL
+INFO  Source frankfurter ingested 730 rows
 ```
 
 **Verifizierung nach dem Lauf:**
@@ -288,6 +488,67 @@ docker compose exec postgres psql -U commerce -d commerce_platform -c "SELECT * 
 docker compose exec postgres psql -U commerce -d commerce_platform -c "SELECT * FROM raw.frankfurter_fx_rates LIMIT 5;"
 ```
 
+**Was pruefen diese `psql`-Kommandos genau?**
+
+| Kommando | Zweck |
+|---|---|
+| `SELECT ... FROM raw.ingestion_audit ...` | Zeigt, welche Quellen im letzten Lauf geladen wurden, mit `batch_id`, `row_count` und Zeitstempel |
+| `SELECT count(*) FROM raw.olist_orders;` | Prueft, ob die Olist-Orders wirklich im Raw-Schema gelandet sind |
+| `SELECT count(*) FROM raw.open_meteo_weather;` | Prueft, ob die Wetterdaten geladen wurden |
+| `SELECT * FROM raw.open_food_facts_products LIMIT 3;` | Zeigt ein paar echte Beispielzeilen der Produkt-Enrichment-Daten |
+| `SELECT * FROM raw.frankfurter_fx_rates LIMIT 5;` | Zeigt ein paar geladene FX-Raten |
+
+**Schrittweise in den Container und in `psql` gehen**
+
+Wenn du nicht nur Einmal-Kommandos ausfuehren, sondern PostgreSQL interaktiv erkunden willst:
+
+```bash
+# 1. Interaktive Shell im laufenden PostgreSQL-Container
+docker compose exec postgres bash
+
+# 2. Im Container psql starten
+psql -U commerce -d commerce_platform
+```
+
+Dann in `psql` zum Erkunden:
+
+```sql
+\conninfo
+\l
+\dn
+\dt
+\dt raw.*
+\d raw.ingestion_audit
+\d raw.olist_orders
+SELECT * FROM raw.ingestion_audit ORDER BY loaded_at DESC LIMIT 10;
+SELECT count(*) FROM raw.olist_orders;
+SELECT count(*) FROM raw.open_meteo_weather;
+SELECT * FROM raw.open_food_facts_products LIMIT 3;
+SELECT * FROM raw.frankfurter_fx_rates LIMIT 5;
+```
+
+**Bedeutung der wichtigsten `psql`-Befehle**
+
+| Befehl | Bedeutung |
+|---|---|
+| `\conninfo` | Zeigt, mit welcher DB und welchem User du verbunden bist |
+| `\l` | Listet alle Datenbanken |
+| `\dn` | Listet alle Schemas |
+| `\dt` | Listet Tabellen im aktuellen Suchpfad |
+| `\dt raw.*` | Listet gezielt alle Tabellen im Schema `raw` |
+| `\d raw.ingestion_audit` | Zeigt Struktur einer einzelnen Tabelle |
+| `\q` | Beendet `psql` |
+
+Zum Verlassen:
+
+```bash
+# psql verlassen
+\q
+
+# Container-Shell verlassen
+exit
+```
+
 **Fehlerszenarien:**
 
 | Situation | Verhalten |
@@ -296,7 +557,7 @@ docker compose exec postgres psql -U commerce -d commerce_platform -c "SELECT * 
 | Open Food Facts API down | Automatischer Fallback auf lokales Sample-JSON, Log-Warnung |
 | Open-Meteo API down | Generiert 14 Fallback-Tage pro Stadt, Log-Warnung |
 | Frankfurter API down | Generiert 14 Fallback-Tage mit 2 Waehrungen, Log-Warnung |
-| MongoDB nicht erreichbar | Mongo-Persist wird uebersprungen, Pipeline laeuft weiter |
+| MongoDB nicht erreichbar | Mongo-Persist wird mit Warnung uebersprungen, Pipeline laeuft weiter |
 
 ### 2. Streaming-Replay (`clickstream_consumer.py`)
 
@@ -326,6 +587,13 @@ make run-streaming
 - PostgreSQL muss laufen (Pflicht fuer `raw.retailrocket_events`)
 - Redpanda/Kafka ist optional (Events werden trotzdem persistiert)
 - MongoDB ist optional
+
+**Wenn PostgreSQL lokal noch nicht laeuft, starte es vor dem Replay explizit:**
+
+```bash
+docker compose up -d postgres
+docker compose exec postgres pg_isready -U commerce -d commerce_platform
+```
 
 **Interner Ablauf (Schritt fuer Schritt):**
 
@@ -380,7 +648,7 @@ docker compose exec redpanda rpk topic consume retailrocket.events.raw --num 3
 |---|---|
 | PostgreSQL nicht erreichbar | Pipeline bricht ab |
 | Redpanda/Kafka nicht erreichbar | Kafka-Publish wird uebersprungen, Rest laeuft weiter |
-| MongoDB nicht erreichbar | Mongo-Persist wird uebersprungen, Rest laeuft weiter |
+| MongoDB nicht erreichbar | Mongo-Persist wird mit Warnung uebersprungen, Rest laeuft weiter |
 | JSONL-Datei leer | Replay beendet sich sauber mit `records=0` |
 
 ### 3. Transformation im Warehouse (`dbt build`)
@@ -505,91 +773,7 @@ Das Dashboard (Schritt 7) zeigt nur Daten an, wenn mindestens Schritt 3-5 abgesc
 
 ---
 
-## Technologiestack
-
-| Kategorie | Technologie | Version |
-|---|---|---|
-| Datenbank (lokal) | PostgreSQL | 18 |
-| Streaming Broker | Redpanda | v25.3.9 |
-| Document Store | MongoDB | 7 |
-| Object Storage (lokal) | MinIO | latest |
-| Orchestrierung | Kestra | v1.1 |
-| Transformation | dbt | >=1.9 |
-| Batch Processing | Spark / PySpark | >=3.5 |
-| IaC | Terraform (Google Provider) | 5.6.0 |
-| Cloud Warehouse | BigQuery | (Zielarchitektur) |
-| Cloud Storage | GCS | (Zielarchitektur) |
-| Frontend | Streamlit + Plotly | >=1.38 / >=5.24 |
-| Container | Docker / Docker Compose | latest |
-| Cloud App Runtime | Cloud Run | (Zielarchitektur) |
-| Python | Python | >=3.11 |
-| Build Tool | uv / pip | latest |
-| Linting | ruff | >=0.6 |
-| Testing | pytest | >=8.0 |
-| CI/CD | GitHub Actions | 4 Workflows |
-
----
-
-## Repository-Struktur
-
-```text
-.
-├── .dockerignore                    # Schlanker Docker-Build-Context
-├── .github/workflows/              # CI: lint, pytest, dbt-checks
-├── dashboard/                       # Streamlit-Frontend
-├── config/                          # Basis-, Dev- und Prod-Konfiguration
-│   ├── base.yaml                    # Alle Quellen, Warehouse, Orchestrierung
-│   ├── dev.yaml                     # Lokale Overrides (Kafka, Geo, etc.)
-│   └── prod.yaml                    # Cloud-Platzhalter
-├── data/sample/                     # Kleine lokale Beispiel- und Replay-Daten
-│   ├── batch/                       # Olist-Manifest, Open Food Facts Sample
-│   └── streaming/                   # Retailrocket JSONL (3 Events)
-├── docs/                            # Architektur, ADRs, Runbooks
-├── infra/terraform/gcp/             # GCP-Grundgeruest (Buckets, Datasets, IAM)
-├── kafka/                           # Topic-Katalog und create_topics.sh
-├── nosql/mongodb/                   # init.js fuer Collections und Indexes
-├── orchestration/kestra/flows/      # Kestra-Flow (daily_platform_ingestion)
-├── quality/
-│   ├── contracts/                   # 4 YAML-Vertraege
-│   └── expectations/                # SQL-Checks (fx_rates, order_statuses, etc.)
-├── spark/jobs/                      # clickstream_sessionization.py
-├── sql/postgres/init/               # Schema-Init + Raw-Tabellen-DDL
-├── src/omnichannel_platform/
-│   ├── batch/                       # commerce_batch_ingestion, source_plans, orders_ingestion
-│   ├── common/                      # logging, settings, clients (Postgres/Mongo), io
-│   ├── dashboard/                   # testbare Dashboard-Logik
-│   ├── quality/                     # rules_catalog (SQL-Runner + Report)
-│   ├── streaming/                   # clickstream_consumer (Replay + Kafka + Persist)
-│   └── warehouse/                   # layer_catalog
-├── tests/
-│   ├── fixtures/                    # sample_orders.json, sample_clickstream_events.jsonl
-│   ├── unit/                        # 5 Testdateien, 13 Tests
-│   └── integration/                 # Repository-Foundation-Check
-└── warehouse/
-    ├── dbt/
-    │   ├── macros/                  # raw_relations.sql (source-aware Fallback)
-    │   ├── models/
-    │   │   ├── staging/             # 9 Staging Views
-    │   │   ├── intermediate/        # 2 Intermediate Views
-    │   │   └── marts/               # 3 Mart Tables
-    │   ├── tests/                   # 3 Singular Tests
-    │   ├── dbt_project.yml
-    │   ├── profiles.ci.yml          # DuckDB CI-Profil
-    │   └── profiles.yml.example     # Postgres/DuckDB/BigQuery Multi-Target
-    └── seeds/                       # (bereit fuer Referenzdaten)
-```
-
-Wichtige Einstiegspunkte:
-
-- [Dockerfile](Dockerfile)
-- [docker-compose.yml](docker-compose.yml)
-- [dashboard/app.py](dashboard/app.py)
-- [orchestration/kestra/flows/daily_platform_ingestion.yml](orchestration/kestra/flows/daily_platform_ingestion.yml)
-- [infra/terraform/gcp/main.tf](infra/terraform/gcp/main.tf)
-
----
-
-## Lokales Setup
+## Setup-Referenz
 
 ### 1. Python-Umgebung
 
@@ -754,7 +938,12 @@ make test
 ### Test 2: Batch-Ingestion (Olist Seed + API-Enrichments)
 
 ```bash
-# Nur Olist
+# Zuerst PostgreSQL vorbereiten
+docker compose up -d postgres
+docker compose ps postgres
+docker compose exec postgres pg_isready -U commerce -d commerce_platform
+
+# Dann den Batch starten
 make run-batch ENVIRONMENT=dev
 
 # Oder einzelne Quelle
@@ -776,10 +965,10 @@ docker compose exec postgres psql -U commerce -d commerce_platform -c "
 
 # Erwartetes Ergebnis:
 # source_name    | batch_id                    | row_count
-# olist          | olist-20260403T...          | ~2400  (500 orders + 1200 items + 250 customers + 150 products + 500 payments)
+# olist          | olist-20260403T...          | 2401   (500 orders + 1001 items + 250 customers + 150 products + 500 payments)
 # open_food_facts| open-food-facts-20260403T...| 3-4
 # open_meteo     | weather-20260403T...        | ~1095  (365 Tage x 3 Staedte)
-# frankfurter    | fx-20260403T...             | ~500   (260 Handelstage x 2 Waehrungen)
+# frankfurter    | fx-20260403T...             | ~730   (365 Tage x 2 Waehrungen)
 
 # Einzelne Raw-Tabellen pruefen
 docker compose exec postgres psql -U commerce -d commerce_platform -c "SELECT count(*) FROM raw.olist_orders;"
@@ -827,7 +1016,7 @@ docker compose exec redpanda rpk topic consume retailrocket.events.raw --num 3
 
 **Fehlerszenarien:**
 - Redpanda nicht erreichbar: Replay laeuft trotzdem (Kafka-Publish wird uebersprungen)
-- MongoDB nicht erreichbar: Replay laeuft trotzdem (Mongo-Persist wird uebersprungen)
+- MongoDB nicht erreichbar: Replay laeuft trotzdem (Mongo-Persist wird mit Warnung uebersprungen)
 - PostgreSQL nicht erreichbar: Pipeline-Schritt scheitert
 
 ### Test 4: dbt Transformation (DuckDB CI-Profil)

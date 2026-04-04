@@ -29,7 +29,11 @@ from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
 from omnichannel_platform.batch.source_plans import BatchSourcePlan, build_batch_plans
-from omnichannel_platform.common.clients import create_postgres_engine, insert_many_documents
+from omnichannel_platform.common.clients import (
+    create_postgres_engine,
+    ensure_postgres_is_reachable,
+    insert_many_documents,
+)
 from omnichannel_platform.common.io import ensure_directory, write_json, write_jsonl
 from omnichannel_platform.common.logging import get_logger
 
@@ -115,7 +119,7 @@ def request_json(
     *,
     params: dict[str, Any] | None = None,
     headers: dict[str, str] | None = None,
-) -> dict[str, Any]:
+) -> Any:
     LOGGER.info("Requesting %s", url)
     response: Response = requests.get(url, params=params, headers=headers, timeout=30)
     response.raise_for_status()
@@ -141,6 +145,36 @@ def write_run_manifest(
         "metadata": metadata or {},
     }
     write_json(output_dir / "run_manifest.json", payload)
+
+
+def normalize_date_series(series: pd.Series) -> pd.Series:
+    return pd.to_datetime(series, errors="coerce").dt.date
+
+
+def normalize_frankfurter_payload(
+    payload: list[dict[str, Any]], ingested_at: datetime
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for entry in payload:
+        rate_date = entry.get("date")
+        base_currency = entry.get("base")
+        quote_currency = entry.get("quote")
+        fx_rate = entry.get("rate")
+
+        if not rate_date or not base_currency or not quote_currency or fx_rate is None:
+            continue
+
+        rows.append(
+            {
+                "rate_date": rate_date,
+                "base_currency": base_currency,
+                "quote_currency": quote_currency,
+                "fx_rate": fx_rate,
+                "ingested_at": ingested_at,
+            }
+        )
+
+    return rows
 
 
 def _seed_olist_frames() -> dict[str, pd.DataFrame]:
@@ -351,10 +385,10 @@ def ingest_open_food_facts(plan: BatchSourcePlan, engine: Engine) -> int:
                 params={"fields": fields} if fields else None,
                 headers=headers,
             )
-        except requests.RequestException:
+        except requests.RequestException as exc:
             LOGGER.warning(
-                "Open Food Facts request failed, using local sample payload instead",
-                exc_info=True,
+                "Open Food Facts request failed, using local sample payload instead (%s)",
+                exc,
             )
             used_fallback = True
             break
@@ -503,8 +537,11 @@ def ingest_open_meteo(plan: BatchSourcePlan, engine: Engine) -> int:
                     for index, date_value in enumerate(dates)
                 ]
             )
-        except requests.RequestException:
-            LOGGER.warning("Open-Meteo request failed, using local fallback rows", exc_info=True)
+        except requests.RequestException as exc:
+            LOGGER.warning(
+                "Open-Meteo request failed, using local fallback rows (%s)",
+                exc,
+            )
             flattened_rows = generate_weather_fallback_rows(plan, ingested_at)
             raw_documents = [
                 {
@@ -535,6 +572,7 @@ def ingest_open_meteo(plan: BatchSourcePlan, engine: Engine) -> int:
         flattened_rows,
         columns=["weather_date", "city", "avg_temperature_c", "precipitation_mm", "ingested_at"],
     )
+    dataframe["weather_date"] = normalize_date_series(dataframe["weather_date"])
     loaded_rows = load_dataframe(engine, "open_meteo_weather", dataframe)
     audit_batch(engine, "open_meteo", batch_id, loaded_rows)
     return loaded_rows
@@ -572,13 +610,12 @@ def ingest_frankfurter(plan: BatchSourcePlan, engine: Engine) -> int:
     ingested_at = utc_now()
     output_dir = run_artifact_dir(plan.landing_path, batch_id)
 
-    request_url = (
-        f"{plan.details['base_url']}{plan.details['endpoint']}/"
-        f"{plan.details['start_date']}..{plan.details['end_date']}"
-    )
+    request_url = f"{plan.details['base_url']}{plan.details['endpoint']}"
     request_params = {
-        "from": plan.details["base_currency"],
-        "to": ",".join(plan.details["quote_currencies"]),
+        "from": plan.details["start_date"],
+        "to": plan.details["end_date"],
+        "base": plan.details["base_currency"],
+        "quotes": ",".join(plan.details["quote_currencies"]),
     }
 
     raw_documents: list[dict[str, Any]]
@@ -594,20 +631,12 @@ def ingest_frankfurter(plan: BatchSourcePlan, engine: Engine) -> int:
                 "payload": payload,
             }
         ]
-        flattened_rows = []
-        for rate_date, rates in sorted(payload.get("rates", {}).items()):
-            for quote_currency, fx_rate in rates.items():
-                flattened_rows.append(
-                    {
-                        "rate_date": rate_date,
-                        "base_currency": plan.details["base_currency"],
-                        "quote_currency": quote_currency,
-                        "fx_rate": fx_rate,
-                        "ingested_at": ingested_at,
-                    }
-                )
-    except requests.RequestException:
-        LOGGER.warning("Frankfurter request failed, using local fallback rows", exc_info=True)
+        flattened_rows = normalize_frankfurter_payload(payload, ingested_at)
+    except requests.RequestException as exc:
+        LOGGER.warning(
+            "Frankfurter request failed, using local fallback rows (%s)",
+            exc,
+        )
         flattened_rows = generate_fx_fallback_rows(plan, ingested_at)
         raw_documents = [
             {
@@ -640,6 +669,7 @@ def ingest_frankfurter(plan: BatchSourcePlan, engine: Engine) -> int:
         flattened_rows,
         columns=["rate_date", "base_currency", "quote_currency", "fx_rate", "ingested_at"],
     )
+    dataframe["rate_date"] = normalize_date_series(dataframe["rate_date"])
     loaded_rows = load_dataframe(engine, "frankfurter_fx_rates", dataframe)
     audit_batch(engine, "frankfurter", batch_id, loaded_rows)
     return loaded_rows
@@ -654,10 +684,11 @@ INGESTORS = {
 
 
 def run(environment: str, source_name: str) -> None:
+    LOGGER.info("Starting omnichannel batch ingestion for environment=%s", environment)
     engine = create_postgres_engine()
+    ensure_postgres_is_reachable(engine)
     plans = build_batch_plans(environment)
 
-    LOGGER.info("Starting omnichannel batch ingestion for environment=%s", environment)
     for plan in plans:
         if source_name != "all" and plan.source_name != source_name:
             continue

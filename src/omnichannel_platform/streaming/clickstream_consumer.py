@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from omnichannel_platform.common.clients import create_postgres_engine, ensure_postgres_is_reachable
 from omnichannel_platform.common.io import ensure_directory, read_jsonl, write_json, write_jsonl
 from omnichannel_platform.common.logging import get_logger
 from omnichannel_platform.common.settings import load_settings
@@ -92,15 +93,12 @@ def mongo_database_name() -> str:
     return os.getenv("MONGO_DATABASE", "commerce_raw")
 
 
-def persist_to_postgres(rows: list[dict[str, Any]]) -> int:
+def persist_to_postgres(engine, rows: list[dict[str, Any]]) -> int:
     if not rows:
         return 0
 
     from sqlalchemy import text
 
-    from omnichannel_platform.common.clients import create_postgres_engine
-
-    engine = create_postgres_engine()
     with engine.begin() as connection:
         connection.execute(text("truncate table raw.retailrocket_events"))
         connection.execute(
@@ -165,7 +163,7 @@ def write_replay_artifacts(
     )
 
 
-def run_replay(plan: StreamingIngestionPlan, mode: str) -> dict[str, Any]:
+def run_replay(plan: StreamingIngestionPlan, mode: str, engine) -> dict[str, Any]:
     replay_source = Path(plan.replay_source)
     raw_events = read_jsonl(replay_source)
     normalized_rows = [
@@ -187,7 +185,7 @@ def run_replay(plan: StreamingIngestionPlan, mode: str) -> dict[str, Any]:
         if producer is not None:
             producer.close()
 
-    inserted_rows = persist_to_postgres(normalized_rows)
+    inserted_rows = persist_to_postgres(engine, normalized_rows)
     mongo_rows = persist_to_mongo(plan.raw_collection, raw_documents)
     write_replay_artifacts(plan, raw_documents, normalized_rows, mode)
 
@@ -223,7 +221,9 @@ def run(environment: str, mode: str) -> None:
             "TODO: replace with a long-running Kafka consumer loop."
         )
 
-    summary = run_replay(plan, mode)
+    engine = create_postgres_engine()
+    ensure_postgres_is_reachable(engine)
+    summary = run_replay(plan, mode, engine)
     LOGGER.info(
         "Retailrocket replay finished: records=%s postgres=%s mongo=%s",
         summary["record_count"],
