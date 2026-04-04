@@ -77,7 +77,9 @@ def derive_commerce_insights(dataframe: pd.DataFrame) -> list[str]:
     insights: list[str] = []
 
     top_category = (
-        dataframe.groupby("product_category_name")["payment_value_brl"].sum().sort_values(ascending=False)
+        dataframe.groupby("product_category_name")["payment_value_brl"]
+        .sum()
+        .sort_values(ascending=False)
     )
     if not top_category.empty:
         insights.append(
