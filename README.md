@@ -666,6 +666,9 @@ docker compose exec redpanda rpk topic consume retailrocket.events.raw --num 3
 ```bash
 # Option A: dbt gegen DuckDB (kein PostgreSQL noetig, gut fuer CI)
 make run-warehouse
+# (Bei lokalem Python 3.14 stattdessen im Container ausfuehren:)
+# docker compose exec platform-runner make run-warehouse
+
 # Oder nur dbt:
 make dbt-build-ci
 
