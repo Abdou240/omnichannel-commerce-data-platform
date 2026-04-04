@@ -316,8 +316,9 @@ Wichtige Einstiegspunkte:
 
 ## Lokales Setup
 
-> **Hinweis zu Python-Versionen:** Das Projekt unterstuetzt Python >=3.11. Alle Abhaengigkeiten
-> sind mit Python 3.11-3.14 getestet. Die Docker-Images und CI-Workflows nutzen Python 3.11.
+> **Hinweis zu Python-Versionen:** Das Projekt unterstuetzt Python >=3.11 und ist grundlegend mit Python 3.11-3.14 getestet.
+> **Wichtig fuer Python 3.14:** Das Paket `dbt-core` (bzw. dessen Abhaengigkeit `mashumaro`) ist aktuell inkompatibel mit Python 3.14. Wenn du lokal Python 3.14 nutzt, fuehre `dbt build` wie unter [Warehouse und dbt-Modellierung](#3-transformation-im-warehouse-dbt-build) (Option C) beschrieben im Docker-Container aus.
+> Die Docker-Images und CI-Workflows nutzen stabil Python 3.11.
 
 ### Schnellstart fuer die Python-Skripte
 
@@ -671,6 +672,28 @@ make dbt-build-ci
 # Option B: dbt gegen lokales PostgreSQL (nach Batch-Ingestion)
 mkdir -p ~/.dbt && cp warehouse/dbt/profiles.yml.example ~/.dbt/profiles.yml
 dbt build --project-dir warehouse/dbt --target dev
+
+# Option C: dbt im Docker-Container (empfohlen bei lokalem Python 3.14)
+# Der platform-runner Container nutzt Python 3.11 und vermeidet dbt-Inkompatibilitaeten
+docker compose up -d platform-runner
+docker compose exec platform-runner bash -c '
+mkdir -p /tmp/dbt-profiles
+cat > /tmp/dbt-profiles/profiles.yml << PROFILES
+omnichannel_platform:
+  target: local-pg
+  outputs:
+    local-pg:
+      type: postgres
+      host: postgres
+      user: commerce
+      password: commerce
+      port: 5432
+      dbname: commerce_platform
+      schema: staging
+      threads: 4
+PROFILES
+dbt build --project-dir warehouse/dbt --profiles-dir /tmp/dbt-profiles --target local-pg
+'
 ```
 
 Die dbt-Modelle bilden aktuell drei Schichten:
