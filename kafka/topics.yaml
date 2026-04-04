@@ -1,21 +1,36 @@
+# ============================================================================
+# Kafka/Redpanda Topic-Definitionen (fuer create_topics.sh)
+# Zweck: Wird vom Shell-Skript gelesen um Topics per rpk anzulegen
+# Ausfuehrung: make kafka-topics
+# ============================================================================
+
 topics:
+  # --- Raw-Topic: Alle Retailrocket-Events ungefiltert ---
   - name: retailrocket.events.raw
     partitions: 3
     replication_factor: 1
-    retention_ms: 604800000
+    retention_ms: 604800000        # 7 Tage (laengere Retention als typisierte Topics)
+
+  # --- View-Events: Produktansichten ---
   - name: retailrocket.events.view
     partitions: 6
     replication_factor: 1
-    retention_ms: 259200000
+    retention_ms: 259200000        # 3 Tage
+
+  # --- Add-to-Cart-Events: Warenkorb-Aktionen ---
   - name: retailrocket.events.addtocart
     partitions: 6
     replication_factor: 1
-    retention_ms: 259200000
+    retention_ms: 259200000        # 3 Tage
+
+  # --- Transaction-Events: Kaufabschluesse ---
   - name: retailrocket.events.transaction
     partitions: 6
     replication_factor: 1
-    retention_ms: 259200000
+    retention_ms: 259200000        # 3 Tage
+
+  # --- Dead Letter Queue: Nicht zuordenbare Events ---
   - name: retailrocket.events.dlq
     partitions: 3
     replication_factor: 1
-    retention_ms: 1209600000
+    retention_ms: 1209600000       # 14 Tage (laengere Retention fuer Fehleranalyse)

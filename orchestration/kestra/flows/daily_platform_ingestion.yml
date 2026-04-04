@@ -1,7 +1,15 @@
+# ============================================================================
+# Kestra Flow: omnichannel_commerce_daily
+# Zweck: Taeglicher Pipeline-Durchlauf (Batch -> Streaming -> dbt -> Quality)
+# Schedule: Taeglich um 06:00 UTC
+# Namespace: omnichannel.platform.dev
+# ============================================================================
 id: omnichannel_commerce_daily
 namespace: omnichannel.platform.dev
 description: Daily local dev flow for Olist batch ingestion, Retailrocket replay, dbt layers, and quality checks.
 
+# --- Parametrisierte Inputs ---
+# Koennen beim manuellen Trigger in der Kestra-UI ueberschrieben werden
 inputs:
   - id: environment
     type: STRING
@@ -10,34 +18,42 @@ inputs:
     type: STRING
     defaults: replay
 
+# --- Automatischer Schedule ---
+# Taeglich um 06:00 UTC
 triggers:
   - id: daily_schedule
     type: io.kestra.plugin.core.trigger.Schedule
     cron: "0 6 * * *"
 
+# --- Pipeline-Tasks (sequenziell) ---
 tasks:
+  # 1. Startnachricht loggen
   - id: start_log
     type: io.kestra.plugin.core.log.Log
     message: "Starting {{ flow.id }} for env={{ inputs.environment }}"
 
+  # 2. Batch-Ingestion: Olist Seeds + Open Food Facts + Open-Meteo + Frankfurter
   - id: batch_ingestion
     type: io.kestra.plugin.scripts.shell.Commands
     warningOnStdErr: false
     commands:
       - python -m omnichannel_platform.batch.commerce_batch_ingestion --env {{ inputs.environment }}
 
+  # 3. Streaming-Replay: Retailrocket JSONL -> Kafka + PostgreSQL
   - id: retailrocket_replay
     type: io.kestra.plugin.scripts.shell.Commands
     warningOnStdErr: false
     commands:
       - python -m omnichannel_platform.streaming.clickstream_consumer --env {{ inputs.environment }} --mode {{ inputs.streaming_mode }}
 
+  # 4. Warehouse-Layer-Planung: Raw -> Staging -> Marts Katalog ausgeben
   - id: warehouse_layers
     type: io.kestra.plugin.scripts.shell.Commands
     warningOnStdErr: false
     commands:
       - python -m omnichannel_platform.warehouse.layer_catalog --env {{ inputs.environment }}
 
+  # 5. dbt Build: 9 Staging + 2 Intermediate + 3 Marts + Tests
   - id: dbt_build
     type: io.kestra.plugin.scripts.shell.Commands
     warningOnStdErr: false
@@ -46,12 +62,14 @@ tasks:
       - cp warehouse/dbt/profiles.ci.yml .dbt/profiles.yml
       - WAREHOUSE_PATH=storage/warehouse/local.duckdb dbt build --project-dir warehouse/dbt --profiles-dir .dbt
 
+  # 6. Quality-Checks: SQL-Expectations gegen PostgreSQL (non-strict)
   - id: run_quality
     type: io.kestra.plugin.scripts.shell.Commands
     warningOnStdErr: false
     commands:
       - python -m omnichannel_platform.quality.rules_catalog --non-strict
 
+  # 7. Abschlussnachricht loggen
   - id: finish_log
     type: io.kestra.plugin.core.log.Log
     message: "Flow finished for env={{ inputs.environment }}"

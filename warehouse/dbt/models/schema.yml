@@ -1,6 +1,18 @@
+# ============================================================================
+# dbt Schema: Modell-Definitionen und Spalten-Tests
+# Zweck: Dokumentiert alle 14 dbt-Modelle und definiert Spalten-Tests
+# Tests: not_null und unique auf Schluesselfeldern
+# ============================================================================
 version: 2
 
 models:
+
+  # ==========================================================================
+  # STAGING-SCHICHT (9 Views)
+  # Normalisierung der Rohdaten mit source-aware Fallbacks
+  # ==========================================================================
+
+  # --- Olist Staging (5 Modelle) ---
   - name: stg_olist_orders
     description: Normalized Olist order headers.
     columns:
@@ -37,6 +49,7 @@ models:
       - name: order_id
         tests: [not_null]
 
+  # --- Streaming Staging ---
   - name: stg_retailrocket_events
     description: Normalized Retailrocket clickstream events.
     columns:
@@ -47,6 +60,7 @@ models:
       - name: event_type
         tests: [not_null]
 
+  # --- Enrichment Staging (3 Modelle) ---
   - name: stg_open_food_facts_products
     description: Open Food Facts API products normalized for product dimension usage.
     columns:
@@ -69,6 +83,11 @@ models:
       - name: quote_currency
         tests: [not_null]
 
+  # ==========================================================================
+  # INTERMEDIATE-SCHICHT (2 Views)
+  # Anreicherung und Sessionisierung
+  # ==========================================================================
+
   - name: int_orders_with_context
     description: Order-grain intermediate model with commerce, customer, weather, and FX context.
     columns:
@@ -80,6 +99,11 @@ models:
     columns:
       - name: session_key
         tests: [not_null, unique]
+
+  # ==========================================================================
+  # MART-SCHICHT (3 Tables)
+  # Analytische Endtabellen fuer Dashboard und Reporting
+  # ==========================================================================
 
   - name: fct_commerce_orders
     description: Order-grain commerce fact table.

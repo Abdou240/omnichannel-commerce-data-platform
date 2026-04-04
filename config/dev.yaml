@@ -1,15 +1,27 @@
+# ============================================================================
+# Dev-Konfiguration: Lokale Overrides fuer die Entwicklungsumgebung
+# Zweck: Ueberschreibt base.yaml Werte fuer lokalen Docker-Compose-Stack
+# ============================================================================
+
 runtime:
   environment: dev
 
 sources:
+  # --- Olist: Lokales Manifest fuer Seed-Dateien ---
   olist:
     local_manifest: data/sample/batch/olist_manifest.yaml
-    schedule: "0 3 * * *"
+    schedule: "0 3 * * *"    # Taeglich um 03:00 (nur fuer Kestra-Referenz)
+
+  # --- Retailrocket: Lokaler Kafka-Broker (Redpanda) ---
   retailrocket:
     bootstrap_servers: localhost:9092
     starting_offsets: earliest
+
+  # --- Open Food Facts: Verzoegerung zwischen API-Aufrufen ---
   open_food_facts:
     request_delay_seconds: 1
+
+  # --- Open-Meteo: 3 brasilianische Staedte fuer Wetter-Enrichment ---
   open_meteo:
     geographies:
       - city: sao_paulo
@@ -21,6 +33,8 @@ sources:
       - city: belo_horizonte
         latitude: -19.9167
         longitude: -43.9345
+
+  # --- Frankfurter: Zielwaehrungen ---
   frankfurter:
     quote_currencies:
       - USD

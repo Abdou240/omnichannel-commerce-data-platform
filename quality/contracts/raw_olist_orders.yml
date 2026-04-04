@@ -1,10 +1,22 @@
+# ============================================================================
+# Quality Contract: raw.olist_orders
+# Zweck: Deklarative Qualitaetsregeln fuer die Olist-Bestellungen in der Raw-Schicht
+# Owner: data-platform
+# ============================================================================
 dataset: raw.olist_orders
 owner: data-platform
 description: Starter contract for Olist order headers landed into the raw warehouse schema.
+
 rules:
+  # Jede Bestellung muss eine eindeutige order_id haben
   - name: order_id_not_null
     expectation: order_id must be present
+
+  # Bestellstatus muss einem bekannten Olist-Lifecycle-Wert entsprechen
+  # (delivered, shipped, processing, invoiced, approved, etc.)
   - name: order_status_domain
     expectation: order_status should match the known Olist order lifecycle domain
+
+  # Kaufzeitpunkt muss vorhanden sein
   - name: order_purchase_timestamp_present
     expectation: order_purchase_timestamp should be populated for landed records

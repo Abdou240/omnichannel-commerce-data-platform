@@ -1,16 +1,25 @@
+# ============================================================================
+# Pre-Commit Hooks
+# Zweck: Automatische Code-Qualitaetspruefung vor jedem Commit
+# Installation: pre-commit install
+# Manuell: pre-commit run --all-files
+# ============================================================================
+
 repos:
+  # --- Standard-Hooks: Merge-Konflikte, TOML/YAML-Syntax, Whitespace ---
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
-      - id: check-merge-conflict
-      - id: check-toml
-      - id: check-yaml
-      - id: end-of-file-fixer
-      - id: trailing-whitespace
+      - id: check-merge-conflict    # Verhindert versehentliches Committen von Merge-Markern
+      - id: check-toml              # Validiert pyproject.toml Syntax
+      - id: check-yaml              # Validiert alle YAML-Dateien
+      - id: end-of-file-fixer       # Stellt sicher, dass Dateien mit Newline enden
+      - id: trailing-whitespace     # Entfernt Whitespace am Zeilenende
 
+  # --- Ruff: Python Linting und Formatierung ---
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.12.0
     hooks:
-      - id: ruff
+      - id: ruff                    # Linting mit Auto-Fix
         args: [--fix]
-      - id: ruff-format
+      - id: ruff-format             # Code-Formatierung (Black-kompatibel)

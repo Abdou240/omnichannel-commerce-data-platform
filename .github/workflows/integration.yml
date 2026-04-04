@@ -1,5 +1,12 @@
+# ============================================================================
+# Workflow: integration
+# Zweck: Vollstaendiger End-to-End-Test der gesamten Pipeline
+# Trigger: Bei jedem Push auf main und bei Pull Requests
+# Besonderheit: Startet einen echten PostgreSQL-18-Service-Container
+# ============================================================================
 name: integration
 
+# --- Trigger-Konfiguration ---
 on:
   pull_request:
   push:
@@ -10,6 +17,8 @@ jobs:
   full-ci:
     runs-on: ubuntu-latest
 
+    # --- PostgreSQL-Service-Container ---
+    # Wird automatisch gestartet und ist unter localhost:5432 erreichbar
     services:
       postgres:
         image: postgres:18
@@ -25,6 +34,8 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
+    # --- Umgebungsvariablen fuer alle Steps ---
+    # Werden von den Python-Pipelines automatisch gelesen
     env:
       POSTGRES_HOST: localhost
       POSTGRES_PORT: 5432
@@ -33,52 +44,66 @@ jobs:
       POSTGRES_PASSWORD: commerce
 
     steps:
+      # --- Repository auschecken ---
       - name: Check out repository
         uses: actions/checkout@v4
 
+      # --- Python 3.11 einrichten ---
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
+      # --- Abhaengigkeiten installieren (alles ausser Spark und Dashboard) ---
       - name: Install project dependencies
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev,batch,streaming,quality,warehouse]"
 
+      # --- PostgreSQL-Schemas und Raw-Tabellen initialisieren ---
+      # Fuehrt die DDL-Skripte aus sql/postgres/init/ aus
       - name: Initialize raw schemas
         run: |
           PGPASSWORD=commerce psql -h localhost -U commerce -d commerce_platform \
             -f sql/postgres/init/001_create_local_warehouse_schemas.sql \
             -f sql/postgres/init/002_create_raw_placeholder_tables.sql
 
+      # --- Lint-Pruefung (ruff check) ---
       - name: Run lint
         run: ruff check .
 
+      # --- Alle 27 pytest-Tests ausfuehren ---
       - name: Run unit tests
         run: pytest tests/ -v
 
+      # --- Batch-Ingestion: Nur Olist Seeds (keine API-Aufrufe in CI) ---
       - name: Run batch ingestion (Olist seeds only)
         run: python -m omnichannel_platform.batch.commerce_batch_ingestion --env dev --source olist
 
+      # --- Verifizierung: Olist-Daten in raw.ingestion_audit pruefen ---
       - name: Verify Olist raw data loaded
         run: |
           PGPASSWORD=commerce psql -h localhost -U commerce -d commerce_platform -c "
             SELECT source_name, row_count FROM raw.ingestion_audit WHERE source_name = 'olist';
           " | grep -q olist
 
+      # --- Streaming-Replay: Retailrocket JSONL -> PostgreSQL ---
       - name: Run streaming replay
         run: python -m omnichannel_platform.streaming.clickstream_consumer --env dev --mode replay
 
+      # --- Verifizierung: Retailrocket-Events in raw-Tabelle pruefen ---
       - name: Verify replay events loaded
         run: |
           PGPASSWORD=commerce psql -h localhost -U commerce -d commerce_platform -c "
             SELECT count(*) as cnt FROM raw.retailrocket_events;
           " | grep -qE "[1-9]"
 
+      # --- Quality-Checks im Non-Strict-Modus ---
       - name: Run quality checks (non-strict)
         run: python -m omnichannel_platform.quality.rules_catalog --non-strict
 
+      # --- dbt-Build gegen echtes PostgreSQL ---
+      # Erstellt ein temporaeres Profil fuer PostgreSQL (nicht DuckDB)
       - name: Build dbt project against PostgreSQL
         run: |
           mkdir -p /tmp/dbt-profiles
@@ -98,12 +123,15 @@ jobs:
           PROFILES
           dbt build --project-dir warehouse/dbt --profiles-dir /tmp/dbt-profiles --target ci-pg
 
+      # --- Verifizierung: Mart-Tabelle hat Daten ---
       - name: Verify mart tables populated
         run: |
           PGPASSWORD=commerce psql -h localhost -U commerce -d commerce_platform -c "
             SELECT count(*) as cnt FROM staging.fct_commerce_orders;
           " | grep -qE "[1-9]"
 
+      # --- Docker-Image-Builds als Smoke-Test ---
+      # Stellt sicher, dass beide Dockerfile-Targets fehlerfrei bauen
       - name: Build Docker images
         run: |
           docker build --target pipeline -t omnichannel-platform-pipeline:test .

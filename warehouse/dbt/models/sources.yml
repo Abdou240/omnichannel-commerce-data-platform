@@ -1,10 +1,17 @@
+# ============================================================================
+# dbt Sources: Raw-Layer
+# Zweck: Definiert alle 9 Rohdaten-Tabellen im Schema "raw" als dbt-Sources
+# Diese Sources werden von den Staging-Modellen per {{ source('raw', ...) }} referenziert
+# ============================================================================
 version: 2
 
 sources:
   - name: raw
     description: Raw-layer sources landed from Olist, Retailrocket, and external enrichment APIs.
     schema: raw
+
     tables:
+      # --- Olist Commerce-Daten (5 Tabellen) ---
       - name: olist_orders
         description: Olist order headers loaded into the raw warehouse schema.
       - name: olist_order_items
@@ -15,8 +22,12 @@ sources:
         description: Olist product attributes loaded into the raw warehouse schema.
       - name: olist_order_payments
         description: Olist payment records loaded into the raw warehouse schema.
+
+      # --- Streaming-Daten ---
       - name: retailrocket_events
         description: Retailrocket replay events loaded from the Kafka replay foundation.
+
+      # --- Externe Enrichment-APIs (3 Tabellen) ---
       - name: open_food_facts_products
         description: Open Food Facts product payloads normalized into raw product rows.
       - name: open_meteo_weather

@@ -1,4 +1,16 @@
+# ============================================================================
+# Docker Compose: Omnichannel Commerce Data Platform
+# Zweck: Lokaler Entwicklungs-Stack mit 9 Services
+# Start: docker compose up -d
+# ============================================================================
+
 services:
+
+  # --------------------------------------------------------------------------
+  # PostgreSQL 18 -- Lokales Warehouse und Raw-Landing-Zone
+  # Enthaelt die Schemas: raw, staging, marts
+  # Init-Skripte unter sql/postgres/init/ werden beim ersten Start ausgefuehrt
+  # --------------------------------------------------------------------------
   postgres:
     image: postgres:18
     container_name: omnichannel-postgres
@@ -17,6 +29,10 @@ services:
       timeout: 5s
       retries: 5
 
+  # --------------------------------------------------------------------------
+  # pgAdmin -- Web-UI fuer PostgreSQL (erreichbar unter http://localhost:8085)
+  # Login: admin@admin.com / root
+  # --------------------------------------------------------------------------
   pgadmin:
     image: dpage/pgadmin4
     container_name: omnichannel-pgadmin
@@ -31,6 +47,11 @@ services:
       postgres:
         condition: service_healthy
 
+  # --------------------------------------------------------------------------
+  # Redpanda v25.3.9 -- Kafka-kompatibler Streaming-Broker
+  # Externe Kafka-API auf Port 9092, interne auf 29092
+  # Pandaproxy (REST) auf Port 8082
+  # --------------------------------------------------------------------------
   redpanda:
     image: docker.redpanda.com/redpandadata/redpanda:v25.3.9
     container_name: omnichannel-redpanda
@@ -54,15 +75,19 @@ services:
       - --pandaproxy-addr
       - internal://0.0.0.0:28082,external://0.0.0.0:8082
     ports:
-      - "9092:9092"
-      - "8082:8082"
-      - "29092:29092"
+      - "9092:9092"      # Kafka-API (extern)
+      - "8082:8082"      # Pandaproxy REST-API
+      - "29092:29092"    # Kafka-API (intern, fuer Container-zu-Container)
     healthcheck:
       test: ["CMD-SHELL", "rpk cluster health | grep -q 'Healthy'"]
       interval: 10s
       timeout: 5s
       retries: 5
 
+  # --------------------------------------------------------------------------
+  # Redpanda Console -- Web-UI fuer Topics und Consumer-Groups
+  # Erreichbar unter http://localhost:8484
+  # --------------------------------------------------------------------------
   redpanda-console:
     image: docker.redpanda.com/redpandadata/console:v2.2.2
     container_name: omnichannel-redpanda-console
@@ -80,6 +105,10 @@ services:
     depends_on:
       - redpanda
 
+  # --------------------------------------------------------------------------
+  # MongoDB 7 -- Raw-Document-Store fuer JSON-Payloads
+  # Collections und Indexes werden per init.js angelegt
+  # --------------------------------------------------------------------------
   mongo:
     image: mongo:7
     container_name: omnichannel-mongo
@@ -89,6 +118,11 @@ services:
       - mongo_data:/data/db
       - ./nosql/mongodb/init.js:/docker-entrypoint-initdb.d/init.js:ro
 
+  # --------------------------------------------------------------------------
+  # MinIO -- Lokales S3-kompatibles Object Storage
+  # API auf Port 9000, Web-Console auf Port 9001
+  # Login: minio / minio123
+  # --------------------------------------------------------------------------
   minio:
     image: minio/minio:RELEASE.2025-02-28T09-55-16Z
     container_name: omnichannel-minio
@@ -97,19 +131,25 @@ services:
       MINIO_ROOT_USER: minio
       MINIO_ROOT_PASSWORD: minio123
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "9000:9000"    # S3-API
+      - "9001:9001"    # Web-Console
     volumes:
       - minio_data:/data
 
+  # --------------------------------------------------------------------------
+  # Kestra v1.1 -- Orchestrierungsplattform
+  # Web-UI auf http://localhost:8080, API auf Port 8081
+  # Flow-Dateien werden aus orchestration/kestra/ gemountet
+  # Nutzt PostgreSQL als Backend (Queue + Repository)
+  # --------------------------------------------------------------------------
   kestra:
     image: kestra/kestra:v1.1
     container_name: omnichannel-kestra
     user: "root"
     command: server standalone
     ports:
-      - "8080:8080"
-      - "8081:8081"
+      - "8080:8080"    # Web-UI
+      - "8081:8081"    # API
     volumes:
       - kestra_data:/app/storage
       - ./orchestration/kestra:/app/repo/orchestration/kestra
@@ -137,6 +177,10 @@ services:
       postgres:
         condition: service_healthy
 
+  # --------------------------------------------------------------------------
+  # Platform Runner -- Idle-Container mit allen Pipeline-Abhaengigkeiten
+  # Ermoeglicht Pipeline-Ausfuehrung per: docker compose exec platform-runner ...
+  # --------------------------------------------------------------------------
   platform-runner:
     build:
       context: .
@@ -164,13 +208,18 @@ services:
       mongo:
         condition: service_started
 
+  # --------------------------------------------------------------------------
+  # Dashboard -- Streamlit-Frontend mit 8 Seiten
+  # Erreichbar unter http://localhost:8501
+  # Liest Daten aus PostgreSQL (Raw + Staging + Marts)
+  # --------------------------------------------------------------------------
   dashboard:
     build:
       context: .
       target: dashboard
     container_name: omnichannel-dashboard
     ports:
-      - "8501:8080"
+      - "8501:8080"    # Host:8501 -> Container:8080 (Dockerfile nutzt PORT=8080)
     environment:
       PORT: "8080"
       POSTGRES_HOST: postgres
@@ -184,9 +233,10 @@ services:
       postgres:
         condition: service_healthy
 
+# --- Persistente Volumes ---
 volumes:
-  postgres_data:
-  pgadmin_data:
-  mongo_data:
-  minio_data:
-  kestra_data:
+  postgres_data:     # PostgreSQL-Daten
+  pgadmin_data:      # pgAdmin-Konfiguration
+  mongo_data:        # MongoDB-Daten
+  minio_data:        # MinIO Object Storage
+  kestra_data:       # Kestra-Artefakte und Storage

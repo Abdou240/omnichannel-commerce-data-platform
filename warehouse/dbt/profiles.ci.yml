@@ -1,11 +1,12 @@
+# ============================================================================
+# dbt CI-Profil: DuckDB
+# Zweck: Ermoeglicht dbt-Build ohne PostgreSQL (fuer CI/CD und lokale Tests)
+# DuckDB-Pfad wird per Umgebungsvariable WAREHOUSE_PATH gesetzt
+# ============================================================================
 omnichannel_platform:
   target: ci
   outputs:
     ci:
       type: duckdb
-      path: "{{ env_var('WAREHOUSE_PATH') }}"
+      path: "{{ env_var('WAREHOUSE_PATH') }}"    # z.B. storage/warehouse/local.duckdb
       threads: 4
-
-# TODO:
-# - mirror any future macros, vars, or adapter-specific settings that become required in CI
-# - keep CI focused on scaffold-safe validation until real sources are introduced

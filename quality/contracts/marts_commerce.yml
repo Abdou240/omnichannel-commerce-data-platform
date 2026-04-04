@@ -1,8 +1,17 @@
+# ============================================================================
+# Quality Contract: marts.fct_commerce_orders
+# Zweck: Deklarative Qualitaetsregeln fuer die Commerce-Mart-Tabelle
+# Owner: data-platform
+# ============================================================================
 dataset: marts.fct_commerce_orders
 owner: data-platform
 description: Starter mart-layer contract for commerce orders analytics.
+
 rules:
+  # Jede Bestellung darf nur einmal in der Mart-Tabelle vorkommen
   - name: mart_order_id_unique
     expectation: order_id must be unique in the mart
+
+  # Kundenreferenz muss vorhanden sein
   - name: customer_id_present
     expectation: customer_id should be populated for mart records

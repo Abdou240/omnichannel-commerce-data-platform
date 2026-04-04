@@ -1,5 +1,12 @@
+# ============================================================================
+# Workflow: deploy-gcp
+# Zweck: Dashboard-Image bauen, in Artifact Registry pushen, auf Cloud Run deployen
+# Trigger: Manuell (workflow_dispatch) mit Umgebungswahl (dev/prod)
+# Voraussetzung: GitHub Secrets muessen konfiguriert sein (siehe unten)
+# ============================================================================
 name: deploy-gcp
 
+# --- Manueller Trigger mit Umgebungswahl ---
 on:
   workflow_dispatch:
     inputs:
@@ -12,34 +19,45 @@ on:
           - dev
           - prod
 
+# --- Globale Umgebungsvariablen ---
 env:
-  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-  GCP_REGION: ${{ secrets.GCP_REGION || 'us-central1' }}
-  ARTIFACT_REPO: omnichannel-platform
-  DASHBOARD_SERVICE: omnichannel-dashboard
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}           # GCP-Projekt-ID aus Secrets
+  GCP_REGION: ${{ secrets.GCP_REGION || 'us-central1' }}   # Region (Default: us-central1)
+  ARTIFACT_REPO: omnichannel-platform                      # Name des Artifact Registry Repos
+  DASHBOARD_SERVICE: omnichannel-dashboard                 # Name des Cloud Run Services
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+
+    # --- Berechtigungen fuer OIDC und Repository-Zugriff ---
     permissions:
       contents: read
       id-token: write
 
     steps:
+      # --- Repository auschecken ---
       - name: Check out repository
         uses: actions/checkout@v4
 
+      # --- GCP-Authentifizierung mit Service-Account-Key ---
+      # Benoetigt Secret: GCP_SA_KEY (JSON-Credentials)
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
+      # --- Google Cloud SDK einrichten ---
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
+      # --- Docker fuer Artifact Registry konfigurieren ---
+      # Erlaubt docker push in die regionale Artifact Registry
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker "${{ env.GCP_REGION }}-docker.pkg.dev" --quiet
 
+      # --- Dashboard-Image bauen und pushen ---
+      # Zwei Tags: Commit-SHA (fuer Traceability) und latest
       - name: Build and push dashboard image
         run: |
           IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/dashboard:${{ github.sha }}"
@@ -48,6 +66,9 @@ jobs:
           docker push "$IMAGE"
           docker push "$IMAGE_LATEST"
 
+      # --- Cloud Run Deployment ---
+      # Konfiguriert Umgebungsvariablen fuer PostgreSQL-Verbindung
+      # Benoetigt Secrets: POSTGRES_HOST, POSTGRES_USER, POSTGRES_PASSWORD
       - name: Deploy to Cloud Run
         run: |
           IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/dashboard:${{ github.sha }}"
@@ -63,6 +84,7 @@ jobs:
             --memory 512Mi \
             --cpu 1
 
+      # --- Service-URL ausgeben ---
       - name: Print service URL
         run: |
           gcloud run services describe "${{ env.DASHBOARD_SERVICE }}" \

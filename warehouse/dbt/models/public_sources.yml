@@ -1,26 +1,35 @@
+# ============================================================================
+# dbt Sources: Oeffentliche BigQuery-Datasets
+# Zweck: Optionale Referenzen auf Google Public Datasets fuer Vergleiche
+# Hinweis: Diese Sources liegen in der US Multi-Region
+# ============================================================================
 version: 2
 
 sources:
+  # --- Google Analytics 4 Sample Ecommerce ---
+  # Oeffentliches GA4-Dataset mit obfuskierten E-Commerce-Events
   - name: ga4_public
     database: bigquery-public-data
     schema: ga4_obfuscated_sample_ecommerce
     description: >
-      Optionale BigQuery-Referenz auf das öffentliche GA4-Sample-Ecommerce-Dataset. Die eigentliche
+      Optionale BigQuery-Referenz auf das oeffentliche GA4-Sample-Ecommerce-Dataset. Die eigentliche
       Event-Historie liegt in `events_*`; `events_20210131` dient hier als konkrete Starter-Referenz.
     tables:
       - name: events_20210131
         description: Beispielhafte Tagestabelle aus dem GA4 Sample Ecommerce Dataset.
 
+  # --- theLook eCommerce ---
+  # Oeffentliches E-Commerce-Dataset mit Orders, Products, Users
   - name: thelook_public
     database: bigquery-public-data
     schema: thelook_ecommerce
-    description: Optionale BigQuery-Referenz auf das öffentliche the Look eCommerce Dataset.
+    description: Optionale BigQuery-Referenz auf das oeffentliche the Look eCommerce Dataset.
     tables:
       - name: orders
-        description: Öffentliche Order-Referenzdaten aus the Look eCommerce.
+        description: Oeffentliche Order-Referenzdaten aus the Look eCommerce.
       - name: order_items
-        description: Öffentliche Order-Item-Referenzdaten aus the Look eCommerce.
+        description: Oeffentliche Order-Item-Referenzdaten aus the Look eCommerce.
       - name: products
-        description: Öffentliche Produkt-Referenzdaten aus the Look eCommerce.
+        description: Oeffentliche Produkt-Referenzdaten aus the Look eCommerce.
       - name: users
-        description: Öffentliche User-Referenzdaten aus the Look eCommerce.
+        description: Oeffentliche User-Referenzdaten aus the Look eCommerce.

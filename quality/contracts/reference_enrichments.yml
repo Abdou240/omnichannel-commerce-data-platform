@@ -1,12 +1,25 @@
+# ============================================================================
+# Quality Contract: Externe Enrichment-Daten
+# Zweck: Deklarative Qualitaetsregeln fuer Open Food Facts, Open-Meteo, Frankfurter
+# Owner: data-platform
+# ============================================================================
 dataset_group: raw.external_enrichments
 owner: data-platform
 description: Starter contract for Open Food Facts products, Open-Meteo weather, and Frankfurter FX rates.
+
 rules:
+  # Open Food Facts: Produktcode (Barcode) muss vorhanden sein
   - name: product_code_not_null
     expectation: product API payloads should contain a product barcode or canonical product code
+
+  # Frankfurter: Wechselkurse muessen positiv sein
   - name: fx_rate_positive
     expectation: FX rates must be positive
+
+  # Open-Meteo: Wetterdatum muss vorhanden sein
   - name: weather_date_present
     expectation: weather enrichments must include a weather date
+
+  # Open Food Facts: Produktname muss lesbar sein
   - name: open_food_facts_product_name_present
     expectation: Open Food Facts product payloads should carry a readable product name
