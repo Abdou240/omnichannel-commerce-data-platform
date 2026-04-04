@@ -1,0 +1,70 @@
+name: deploy-gcp
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Deployment environment"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - prod
+
+env:
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCP_REGION: ${{ secrets.GCP_REGION || 'us-central1' }}
+  ARTIFACT_REPO: omnichannel-platform
+  DASHBOARD_SERVICE: omnichannel-dashboard
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker "${{ env.GCP_REGION }}-docker.pkg.dev" --quiet
+
+      - name: Build and push dashboard image
+        run: |
+          IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/dashboard:${{ github.sha }}"
+          IMAGE_LATEST="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/dashboard:latest"
+          docker build --target dashboard -t "$IMAGE" -t "$IMAGE_LATEST" .
+          docker push "$IMAGE"
+          docker push "$IMAGE_LATEST"
+
+      - name: Deploy to Cloud Run
+        run: |
+          IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/dashboard:${{ github.sha }}"
+          gcloud run deploy "${{ env.DASHBOARD_SERVICE }}" \
+            --image "$IMAGE" \
+            --region "${{ env.GCP_REGION }}" \
+            --platform managed \
+            --port 8080 \
+            --allow-unauthenticated \
+            --set-env-vars "POSTGRES_HOST=${{ secrets.POSTGRES_HOST }},POSTGRES_PORT=5432,POSTGRES_DB=commerce_platform,POSTGRES_USER=${{ secrets.POSTGRES_USER }},POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }},DASHBOARD_WAREHOUSE_SCHEMA=staging,DASHBOARD_RAW_SCHEMA=raw" \
+            --min-instances 0 \
+            --max-instances 2 \
+            --memory 512Mi \
+            --cpu 1
+
+      - name: Print service URL
+        run: |
+          gcloud run services describe "${{ env.DASHBOARD_SERVICE }}" \
+            --region "${{ env.GCP_REGION }}" \
+            --format "value(status.url)"

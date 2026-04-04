@@ -59,7 +59,7 @@ Die Plattform soll ein realistisches Omnichannel-Commerce-Szenario abbilden:
 - Rohdaten in ein lokales Warehouse ueberfuehren (PostgreSQL `raw.*`)
 - dbt-Modelle von `raw -> staging -> intermediate -> marts` aufbauen (14 Modelle, 3 Schichten)
 - Datenqualitaetsregeln dokumentieren und ausfuehrbar machen (4 Vertraege, 4 SQL-Expectations)
-- Ergebnisse in einem interaktiven Dashboard visualisieren (Streamlit mit 6 Seiten und Filtern)
+- Ergebnisse in einem interaktiven Dashboard visualisieren (Streamlit mit 8 Seiten und Filtern)
 - alles containerisieren (Multi-Stage Dockerfile, 9 Docker-Compose-Services)
 - eine klare Cloud-Zielarchitektur fuer BigQuery und GCP vorbereiten (Terraform, Cloud Run)
 
@@ -114,10 +114,11 @@ Pipeline auf ein lokales Sample zurueck.
 Wetter-Enrichment auf Tagesebene fuer ausgewaehlte brasilianische Staedte (Sao Paulo, Rio de Janeiro,
 Belo Horizonte).
 
-### Frankfurter API
+### Frankfurter API (v2)
 
 FX-Raten (EUR -> USD, EUR -> BRL) zur spaeten Umrechnung von Betraegen und zur Vergleichbarkeit
-von Commerce-Metriken.
+von Commerce-Metriken. Nutzt die Frankfurter API v2 (`/v2/rates`) mit flacher Liste als
+Antwortformat (ein Eintrag pro Datum+Waehrungspaar).
 
 ### MongoDB
 
@@ -241,7 +242,7 @@ Eine ergaenzende Architekturuebersicht liegt in [docs/architecture.md](docs/arch
 | Build Tool | uv / pip | latest |
 | Linting | ruff | >=0.6 |
 | Testing | pytest | >=8.0 |
-| CI/CD | GitHub Actions | 4 Workflows |
+| CI/CD | GitHub Actions | 5 Workflows |
 
 ---
 
@@ -250,7 +251,7 @@ Eine ergaenzende Architekturuebersicht liegt in [docs/architecture.md](docs/arch
 ```text
 .
 ├── .dockerignore                    # Schlanker Docker-Build-Context
-├── .github/workflows/              # CI: lint, pytest, dbt-checks, integration
+├── .github/workflows/              # CI/CD: lint, pytest, dbt-checks, integration, deploy-gcp
 ├── Dockerfile                       # Multi-Stage Build (pipeline + dashboard)
 ├── docker-compose.yml               # 9 Services (Postgres, Redpanda, Kestra, ...)
 ├── Makefile                         # Alle Make-Targets
@@ -282,8 +283,8 @@ Eine ergaenzende Architekturuebersicht liegt in [docs/architecture.md](docs/arch
 │   └── warehouse/                   # layer_catalog
 ├── tests/
 │   ├── fixtures/                    # sample_orders.json, sample_clickstream_events.jsonl
-│   ├── unit/                        # 5 Testdateien, 13 Tests
-│   └── integration/                 # Repository-Foundation-Check
+│   ├── unit/                        # 11 Testdateien, 27 Tests
+│   └── integration/                 # 2 Integrations-Checks
 └── warehouse/
     ├── dbt/
     │   ├── macros/                  # raw_relations.sql (source-aware Fallback)
@@ -553,7 +554,7 @@ exit
 
 | Situation | Verhalten |
 |---|---|
-| PostgreSQL nicht erreichbar | Pipeline bricht ab (Pflichtabhaengigkeit) |
+| PostgreSQL nicht erreichbar | `ensure_postgres_is_reachable()` bricht ab mit deutschsprachiger Hilfemeldung |
 | Open Food Facts API down | Automatischer Fallback auf lokales Sample-JSON, Log-Warnung |
 | Open-Meteo API down | Generiert 14 Fallback-Tage pro Stadt, Log-Warnung |
 | Frankfurter API down | Generiert 14 Fallback-Tage mit 2 Waehrungen, Log-Warnung |
@@ -646,7 +647,7 @@ docker compose exec redpanda rpk topic consume retailrocket.events.raw --num 3
 
 | Situation | Verhalten |
 |---|---|
-| PostgreSQL nicht erreichbar | Pipeline bricht ab |
+| PostgreSQL nicht erreichbar | `ensure_postgres_is_reachable()` bricht ab mit deutschsprachiger Hilfemeldung |
 | Redpanda/Kafka nicht erreichbar | Kafka-Publish wird uebersprungen, Rest laeuft weiter |
 | MongoDB nicht erreichbar | Mongo-Persist wird mit Warnung uebersprungen, Rest laeuft weiter |
 | JSONL-Datei leer | Replay beendet sich sauber mit `records=0` |
@@ -795,7 +796,7 @@ Das installiert das Projekt im editierbaren Modus (`-e`) zusammen mit allen opti
 | **streaming** | kafka-python-ng, sqlalchemy, psycopg | Retailrocket-Replay, Kafka-Publish, PostgreSQL-Persist |
 | **warehouse** | dbt-postgres, dbt-duckdb, dbt-bigquery | dbt-Transformation gegen alle drei Targets |
 | **nosql** | pymongo | MongoDB-Raw-Document-Store |
-| **quality** | great-expectations, sqlalchemy, psycopg | SQL-Expectations gegen PostgreSQL ausfuehren |
+| **quality** | sqlalchemy, psycopg | SQL-Expectations gegen PostgreSQL ausfuehren |
 | **dashboard** | streamlit, plotly, pandas, sqlalchemy, psycopg | Streamlit-Frontend mit Plotly-Charts |
 
 Zusaetzlich werden die Basispakete `pydantic`, `python-dotenv` und `PyYAML` installiert, die fuer
@@ -918,13 +919,20 @@ make lint
 make test
 
 # Erwartete Ausgabe:
+# tests/integration/test_module_resolution.py         1 passed
 # tests/integration/test_repository_foundations.py    1 passed
+# tests/unit/test_batch_helpers.py                    1 passed
+# tests/unit/test_clients.py                          3 passed
+# tests/unit/test_dashboard_insights.py               4 passed
 # tests/unit/test_dashboard_logic.py                  2 passed
-# tests/unit/test_ingestion_plans.py                 5 passed
-# tests/unit/test_quality_assets.py                  1 passed
-# tests/unit/test_sample_fixtures.py                 2 passed
-# tests/unit/test_settings.py                        2 passed
-# ============================== 13 passed ==============================
+# tests/unit/test_frankfurter_edge_cases.py           2 passed
+# tests/unit/test_frankfurter_payload.py              1 passed
+# tests/unit/test_ingestion_plans.py                  5 passed
+# tests/unit/test_olist_seed_determinism.py           2 passed
+# tests/unit/test_quality_assets.py                   1 passed
+# tests/unit/test_sample_fixtures.py                  2 passed
+# tests/unit/test_settings.py                         2 passed
+# ============================== 27 passed ==============================
 ```
 
 **Was wird getestet:**
@@ -933,7 +941,14 @@ make test
 - `test_sample_fixtures.py`: Fixture-Struktur (Orders, Clickstream)
 - `test_dashboard_logic.py`: Filterlogik und Tabellenstatistiken fuer das Frontend
 - `test_quality_assets.py`: Quality-Asset-Discovery (Contracts + Expectations)
+- `test_clients.py`: PostgreSQL-Erreichbarkeitspruefung (`ensure_postgres_is_reachable`), MongoDB-Fehlerbehandlung
+- `test_batch_helpers.py`: Datumsnormalisierung (`normalize_date_series`)
+- `test_frankfurter_payload.py`: Frankfurter API v2 Payload-Normalisierung
+- `test_frankfurter_edge_cases.py`: Edge Cases (unvollstaendige Eintraege, leere Listen)
+- `test_dashboard_insights.py`: Commerce- und Session-Insight-Ableitung, leere DataFrames
+- `test_olist_seed_determinism.py`: Deterministische Seed-Generierung, erwartete Zeilenzahlen
 - `test_repository_foundations.py`: Prueft ob alle Schluesssel-Dateien existieren
+- `test_module_resolution.py`: Prueft ob das Paket ohne PYTHONPATH importierbar ist
 
 ### Test 2: Batch-Ingestion (Olist Seed + API-Enrichments)
 
@@ -1193,8 +1208,10 @@ curl -f http://localhost:8501/_stcore/health
 #   - Commerce KPIs (8 Metriken + Pie/Bar-Charts)
 #   - Zeitliche Trends (Aggregation Tag/Woche/Monat)
 #   - Kategorien & Regionen (Top-10 + Heatmap)
+#   - Produkt-Analyse (Quellen-Split + Kategorien + Ecoscore)
 #   - Session-Analyse (Funnel + Histogramm)
 #   - Wetter & FX (Zeitreihen + Scatter)
+#   - Datenquellen (Quellen-Uebersicht + Freshness + Datenfluss)
 #   - Pipeline-Status (Audit-Tabelle + Tabellenstatistiken)
 ```
 
@@ -1273,7 +1290,7 @@ docker compose down
 | `make install-dev` | Basispakete + dev (pytest, ruff, pre-commit) | Python-venv |
 | `make install-local` | Alles ausser Spark (empfohlen) | Python-venv |
 | `make lint` | Ruff-Linting ausfuehren | `make install-dev` |
-| `make test` | pytest-Suite ausfuehren (13 Tests) | `make install-dev` |
+| `make test` | pytest-Suite ausfuehren (27 Tests) | `make install-dev` |
 | `make pre-commit` | Pre-commit Hooks ausfuehren | `make install-dev` |
 
 ### Docker und Infrastruktur
@@ -1359,15 +1376,15 @@ docker compose down
 
 ### Engineering-Workflow
 
-- 13 pytest-Tests (Unit + Integration)
-- 4 GitHub-Actions-Workflows (lint, tests, dbt-checks, integration)
+- 27 pytest-Tests (Unit + Integration)
+- 5 GitHub-Actions-Workflows (lint, tests, dbt-checks, integration, deploy-gcp)
 - pre-commit-Konfiguration
 - Docker-Build-Smoke-Test in der Integrationspipeline
 - Modulare Repository-Struktur
 
 ### Frontend und Deployment
 
-- Streamlit-Dashboard mit 6 Seiten: Commerce KPIs, Zeitliche Trends, Kategorien & Regionen, Session-Analyse, Wetter & FX, Pipeline-Status
+- Streamlit-Dashboard mit 8 Seiten: Commerce KPIs, Zeitliche Trends, Kategorien & Regionen, Produkt-Analyse, Session-Analyse, Wetter & FX, Datenquellen, Pipeline-Status
 - Sidebar-Filter (Zeitraum, Status, Kategorie, Bundesstaat, Zahlungsart) wirken seitenuebergreifend
 - Testbare Dashboard-Logik unter `src/omnichannel_platform/dashboard/logic.py` mit eigenen Unit-Tests
 - Multi-Stage-Dockerfile (Python 3.11-slim) fuer Pipeline- und Dashboard-Image
@@ -1569,7 +1586,7 @@ docker compose up -d dashboard
 
 # Option C: nur Dashboard-Container isoliert starten
 docker build --target dashboard -t omnichannel-dashboard:local .
-docker run -p 8501:8501 \
+docker run -p 8501:8080 \
   -e POSTGRES_HOST=host.docker.internal \
   -e POSTGRES_PORT=5432 \
   -e POSTGRES_DB=commerce_platform \
@@ -1623,8 +1640,10 @@ Dashboard-Seiten im Detail:
 | Commerce KPIs | 8 Metriken (Bestellungen, Umsatz BRL/USD, Durchschnittsbestellwert, Artikel, Kunden, Fracht, Lieferquote), Insight-Kacheln, Pie-Chart (Status), Bar-Chart (Zahlungsart) |
 | Zeitliche Trends | Bestellvolumen und Umsatzentwicklung nach Tag/Woche/Monat, gestapelter Kategorien-Umsatz |
 | Kategorien & Regionen | Top-10 Kategorien nach Umsatz, Top-10 Bundesstaaten, Heatmap (Kategorie x Bundesstaat) |
+| Produkt-Analyse | Produkte nach Quelle (Olist vs. Open Food Facts), Top-15 Kategorien, Ecoscore-Verteilung |
 | Session-Analyse | Session-KPIs (Visitors, Events/Session, Conversion Rate), Event-Funnel, Histogramm der Event-Verteilung |
 | Wetter & FX | Temperaturverlauf, Niederschlag, EUR/USD- und EUR/BRL-Kurse, Scatter (Temperatur vs. Bestellwert) |
+| Datenquellen | Quellen-Uebersicht (5 Quellen mit Typ/Tabellen/Zeilen), letzte Ingestion pro Quelle, Datenfluss-Diagramm |
 | Pipeline-Status | Ingestion-Audit-Tabelle, Zeilen-/Spalten-Statistiken pro Warehouse-Tabelle, Technologie-Stack |
 
 Die Sidebar erlaubt kombinierte Filterung nach Zeitraum, Bestellstatus, Produktkategorie, Bundesstaat und Zahlungsart.
@@ -1690,9 +1709,10 @@ Die Verbindungsparameter werden ueber `dashboard_env_vars` in `terraform.tfvars`
 | Workflow | Trigger | Prueft |
 |---|---|---|
 | [lint.yml](.github/workflows/lint.yml) | push main + PRs | `pre-commit run --all-files` |
-| [tests.yml](.github/workflows/tests.yml) | push main + PRs | `pytest` (13 Tests) |
+| [tests.yml](.github/workflows/tests.yml) | push main + PRs | `pytest` (27 Tests) |
 | [dbt-checks.yml](.github/workflows/dbt-checks.yml) | push main + PRs | `dbt parse` + `dbt build` (DuckDB CI-Profil) |
 | [integration.yml](.github/workflows/integration.yml) | push main + PRs | PostgreSQL-Service, Batch/Streaming/Quality/dbt-End-to-End und Docker-Builds |
+| [deploy-gcp.yml](.github/workflows/deploy-gcp.yml) | workflow_dispatch (manuell) | Dashboard-Image bauen, nach Artifact Registry pushen und auf Cloud Run deployen |
 
 Alle Workflows nutzen Python 3.11 und laufen auf `ubuntu-latest`.
 
@@ -1704,8 +1724,8 @@ schlaegt fehl, wenn Codeformatierungs- oder Linting-Regeln verletzt werden.
 
 #### tests.yml
 
-Installiert die `dev`- und `batch`-Extras und fuehrt `pytest` aus. Testet alle 13 Tests
-(5 Unit-Testdateien + 1 Integrations-Testdatei). Kein PostgreSQL noetig -- alle Tests
+Installiert die `dev`-, `batch`- und `dashboard`-Extras und fuehrt `pytest` aus. Testet alle 27 Tests
+(11 Unit-Testdateien + 2 Integrations-Testdateien). Kein PostgreSQL noetig -- alle Tests
 laufen rein lokal gegen Fixtures und YAML-Konfiguration.
 
 #### dbt-checks.yml
@@ -1721,7 +1741,7 @@ den kompletten Pipeline-Pfad:
 
 1. Schema-Initialisierung (SQL-DDL aus `sql/postgres/init/`)
 2. Lint (`ruff check .`)
-3. pytest (alle 13 Tests)
+3. pytest (alle 27 Tests)
 4. Batch-Ingestion (`--source olist` -- nur Olist Seeds, keine API-Aufrufe in CI)
 5. Verifizierung: `raw.ingestion_audit` enthaelt Olist-Eintrag
 6. Streaming-Replay (`--mode replay`)
@@ -1730,6 +1750,13 @@ den kompletten Pipeline-Pfad:
 9. dbt-Build gegen echtes PostgreSQL (mit temporaerem Profil)
 10. Verifizierung: `staging.fct_commerce_orders` hat Daten
 11. Docker-Image-Builds (Pipeline + Dashboard) als Smoke-Test
+
+#### deploy-gcp.yml
+
+Manuell ausloesbar ueber `workflow_dispatch` mit Umgebungswahl (`dev` / `prod`). Baut das Dashboard-
+Image, pusht es in die Artifact Registry und deployed es auf Cloud Run. Benoetigt folgende
+GitHub-Secrets: `GCP_PROJECT_ID`, `GCP_REGION`, `GCP_SA_KEY`, `POSTGRES_HOST`, `POSTGRES_USER`,
+`POSTGRES_PASSWORD`. Das Image wird mit dem Commit-SHA und `latest` getaggt.
 
 ### Lokale CI-Simulation
 
@@ -1763,7 +1790,7 @@ make run-quality
 ### Bereits erfolgreich geprueft
 
 - `ruff check .` -- sauber
-- `pytest` -- 13/13 gruen
+- `pytest` -- 27/27 gruen
 - `make run-warehouse` inklusive `dbt build` -- sauber
 - `make run-quality` mit sauberem Skip-Verhalten ohne erreichbares PostgreSQL
 
@@ -1803,8 +1830,8 @@ Dieses Projekt zeigt nicht nur einzelne Tools, sondern einen konsistenten Data-E
 - **Saubere Schichten:** Raw -> Staging (9 Views) -> Intermediate (2 Views) -> Marts (3 Tables)
 - **Ausfuehrbare Pipelines:** Jedes Skript ist per CLI aufrufbar, jede Ausgabe verifizierbar
 - **Containerisiert:** Multi-Stage Dockerfile, 9 Docker-Compose-Services, Cloud-Run-ready
-- **Getestet:** 13 pytest-Tests, 4 CI-Workflows, 4 SQL-Quality-Expectations
-- **Visualisiert:** Streamlit-Dashboard mit 6 Seiten, interaktiven Filtern und automatischen Insights
+- **Getestet:** 27 pytest-Tests, 5 CI/CD-Workflows, 4 SQL-Quality-Expectations
+- **Visualisiert:** Streamlit-Dashboard mit 8 Seiten, interaktiven Filtern und automatischen Insights
 - **Cloud-ready:** Terraform fuer GCS, BigQuery, Artifact Registry und Cloud Run
 - **Dokumentiert:** Ausfuehrliche README mit CLI-Referenzen, erwarteten Ausgaben und Fehlerszenarien
 

@@ -28,7 +28,7 @@ batch = [
   "click>=8.3.1",
   "pandas>=2.3,<3.0",
   "psycopg[binary]>=3.2,<4.0",
-  "pyarrow>=15,<22.0.0",
+  "pyarrow>=15,<24",
   "requests>=2.32,<3.0",
   "sqlalchemy>=2.0.44",
   "tqdm>=4.67,<5.0",
@@ -47,7 +47,6 @@ nosql = [
   "pymongo>=4.8,<5.0",
 ]
 quality = [
-  "great-expectations>=1.2,<2.0",
   "psycopg[binary]>=3.2,<4.0",
   "sqlalchemy>=2.0.44",
 ]

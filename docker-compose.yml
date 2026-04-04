@@ -170,8 +170,9 @@ services:
       target: dashboard
     container_name: omnichannel-dashboard
     ports:
-      - "8501:8501"
+      - "8501:8080"
     environment:
+      PORT: "8080"
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       POSTGRES_DB: commerce_platform

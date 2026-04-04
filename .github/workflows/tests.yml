@@ -22,7 +22,7 @@ jobs:
       - name: Install project dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ".[dev,batch]"
+          python -m pip install -e ".[dev,batch,dashboard]"
 
       - name: Run pytest
         run: pytest

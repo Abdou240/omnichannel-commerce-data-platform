@@ -177,8 +177,10 @@ def main() -> None:
         "Commerce KPIs",
         "Zeitliche Trends",
         "Kategorien & Regionen",
+        "Produkt-Analyse",
         "Session-Analyse",
         "Wetter & FX",
+        "Datenquellen",
         "Pipeline-Status",
     ]
     page = st.sidebar.radio("Seite", pages)
@@ -366,6 +368,70 @@ def main() -> None:
             use_container_width=True,
         )
 
+    elif page == "Produkt-Analyse":
+        st.subheader("Produkt-Analyse")
+        products = dataframes["products"]
+
+        if products.empty:
+            st.warning("Keine Produktdaten vorhanden. Bitte `dbt build` ausfuehren.")
+        else:
+            source_counts = products["source_system"].value_counts().reset_index()
+            source_counts.columns = ["Quelle", "Anzahl"]
+
+            col1, col2 = st.columns(2)
+            col1.metric("Produkte gesamt", f"{len(products):,}")
+            col2.metric("Quellen", f"{products['source_system'].nunique()}")
+
+            st.plotly_chart(
+                px.pie(
+                    source_counts,
+                    names="Quelle",
+                    values="Anzahl",
+                    title="Produkte nach Quelle",
+                    color_discrete_sequence=px.colors.qualitative.Set3,
+                ),
+                use_container_width=True,
+            )
+
+            if "product_category_name" in products.columns:
+                cat_counts = (
+                    products["product_category_name"]
+                    .dropna()
+                    .value_counts()
+                    .head(15)
+                    .sort_values()
+                    .reset_index()
+                )
+                cat_counts.columns = ["Kategorie", "Anzahl"]
+                st.plotly_chart(
+                    px.bar(
+                        cat_counts,
+                        x="Anzahl",
+                        y="Kategorie",
+                        orientation="h",
+                        title="Top 15 Produktkategorien",
+                        color_discrete_sequence=["#2a9d8f"],
+                    ),
+                    use_container_width=True,
+                )
+
+            if "ecoscore_grade" in products.columns:
+                eco = products["ecoscore_grade"].dropna()
+                if not eco.empty:
+                    eco_counts = eco.value_counts().sort_index().reset_index()
+                    eco_counts.columns = ["Ecoscore", "Anzahl"]
+                    st.plotly_chart(
+                        px.bar(
+                            eco_counts,
+                            x="Ecoscore",
+                            y="Anzahl",
+                            title="Open Food Facts Ecoscore-Verteilung",
+                            color="Ecoscore",
+                            color_discrete_sequence=px.colors.qualitative.Safe,
+                        ),
+                        use_container_width=True,
+                    )
+
     elif page == "Session-Analyse":
         sessions = dataframes["sessions"]
         st.subheader("Session-Analyse")
@@ -481,6 +547,66 @@ def main() -> None:
                 ),
                 use_container_width=True,
             )
+
+    elif page == "Datenquellen":
+        st.subheader("Datenquellen-Uebersicht")
+
+        source_info = [
+            {
+                "Quelle": "Olist (CSV Seeds)",
+                "Typ": "Batch",
+                "Tabellen": "5 (orders, items, customers, products, payments)",
+                "Erwartete Zeilen": "~2.401",
+            },
+            {
+                "Quelle": "Open Food Facts API",
+                "Typ": "Batch (API)",
+                "Tabellen": "1 (open_food_facts_products)",
+                "Erwartete Zeilen": "3-4",
+            },
+            {
+                "Quelle": "Open-Meteo API",
+                "Typ": "Batch (API)",
+                "Tabellen": "1 (open_meteo_weather)",
+                "Erwartete Zeilen": "~1.095",
+            },
+            {
+                "Quelle": "Frankfurter API v2",
+                "Typ": "Batch (API)",
+                "Tabellen": "1 (frankfurter_fx_rates)",
+                "Erwartete Zeilen": "~730",
+            },
+            {
+                "Quelle": "Retailrocket (JSONL Replay)",
+                "Typ": "Streaming",
+                "Tabellen": "1 (retailrocket_events)",
+                "Erwartete Zeilen": "3 (Sample)",
+            },
+        ]
+        st.dataframe(pd.DataFrame(source_info), use_container_width=True, hide_index=True)
+
+        audit = dataframes["audit"]
+        if not audit.empty:
+            st.markdown("#### Letzte Ingestion pro Quelle")
+            latest = audit.sort_values("loaded_at", ascending=False).drop_duplicates("source_name")
+            for _, row in latest.iterrows():
+                st.markdown(
+                    f"**{row['source_name']}**: {row['row_count']:,} Zeilen "
+                    f"(Batch `{row['batch_id']}`, {row['loaded_at']})"
+                )
+
+        st.markdown("#### Datenfluss")
+        st.markdown(
+            """
+            ```
+            Olist CSVs ──┐
+            Food Facts ──┤                    ┌─ staging (9 Views)
+            Open-Meteo ──┼── raw.* (9 Tab.) ──┼─ intermediate (2 Views)
+            Frankfurter ─┤                    └─ marts (3 Tables)
+            Retailrocket ┘
+            ```
+            """
+        )
 
     elif page == "Pipeline-Status":
         st.subheader("Pipeline-Status")
