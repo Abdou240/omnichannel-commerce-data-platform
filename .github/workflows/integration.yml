@@ -58,7 +58,7 @@ jobs:
       - name: Install project dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ".[dev,batch,streaming,quality,warehouse]"
+          python -m pip install -e ".[dev,batch,streaming,quality,warehouse,api]"
 
       # --- PostgreSQL-Schemas und Raw-Tabellen initialisieren ---
       # Fuehrt die DDL-Skripte aus sql/postgres/init/ aus
@@ -131,8 +131,9 @@ jobs:
           " | grep -qE "[1-9]"
 
       # --- Docker-Image-Builds als Smoke-Test ---
-      # Stellt sicher, dass beide Dockerfile-Targets fehlerfrei bauen
+      # Stellt sicher, dass alle drei Dockerfile-Targets fehlerfrei bauen
       - name: Build Docker images
         run: |
           docker build --target pipeline -t omnichannel-platform-pipeline:test .
+          docker build --target api -t omnichannel-platform-api:test .
           docker build --target dashboard -t omnichannel-platform-dashboard:test .
