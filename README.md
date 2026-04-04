@@ -362,6 +362,25 @@ docker compose up -d
 
 Der Compose-Stack enthaelt: PostgreSQL 18, pgAdmin, Redpanda v25.3.9 + Console, MongoDB 7, MinIO, Kestra v1.1, einen `platform-runner`-Container und das Streamlit-Dashboard.
 
+| Service | Port | Zweck |
+|---|---|---|
+| postgres | 5432 | Lokales Warehouse + Raw Landing |
+| pgadmin | 8085 | Web-UI fuer PostgreSQL |
+| redpanda | 9092 / 29092 | Kafka-kompatibler Broker |
+| redpanda-console | 8484 | Web-UI fuer Topics und Consumer |
+| mongo | 27017 | Raw-Document-Store |
+| minio | 9000 / 9001 | Lokales Object Storage |
+| kestra | 8080 | Orchestrierungs-UI |
+| platform-runner | — | Idle-Container zum Ausfuehren von Pipeline-Befehlen per `docker compose exec` |
+| dashboard | 8501 | Streamlit-Frontend |
+
+Der `platform-runner` ist ein schlafender Container mit allen Pipeline-Abhaengigkeiten. Er erlaubt es, Pipeline-Schritte im Container-Kontext auszufuehren:
+
+```bash
+docker compose exec platform-runner python -m omnichannel_platform.batch.commerce_batch_ingestion --env dev
+docker compose exec platform-runner python -m omnichannel_platform.streaming.clickstream_consumer --env dev --mode replay
+```
+
 ### 4. Kafka-Topics anlegen
 
 ```bash
@@ -657,20 +676,46 @@ cd ../../..
 ### Test 9: Dashboard lokal
 
 ```bash
-# Direkt lokal
+# Voraussetzung: Daten muessen im Warehouse vorhanden sein (Batch + dbt vorher ausfuehren)
+
+# Option A: direkt lokal (Python-Umgebung mit dashboard-Extras)
 make run-dashboard
 
-# Oder als Container
+# Option B: als Docker-Container
 docker compose up -d dashboard
 ```
 
 Danach ist das Frontend unter `http://localhost:8501` erreichbar.
 
+**Pruefung:**
+
+```bash
+# Healthcheck
+curl -f http://localhost:8501/_stcore/health
+
+# Im Browser oeffnen: http://localhost:8501
+# Erwartete Seiten im Sidebar:
+#   - Commerce KPIs (8 Metriken + Pie/Bar-Charts)
+#   - Zeitliche Trends (Aggregation Tag/Woche/Monat)
+#   - Kategorien & Regionen (Top-10 + Heatmap)
+#   - Session-Analyse (Funnel + Histogramm)
+#   - Wetter & FX (Zeitreihen + Scatter)
+#   - Pipeline-Status (Audit-Tabelle + Tabellenstatistiken)
+```
+
+**Wenn keine Daten vorhanden sind:** Das Dashboard zeigt eine Warnung mit den notwendigen Schritten (`make run-batch`, `make run-streaming`, `make run-warehouse`).
+
 ### Test 10: Docker-Builds
 
 ```bash
+# Pipeline-Image (lokal)
 make docker-build-pipeline
+
+# Dashboard-Image (mit Cloud-Tag)
 make docker-build-dashboard GCP_PROJECT_ID=your-project-id GCP_REGION=us-central1
+
+# Beide Images pruefen
+docker images | grep omnichannel
 ```
 
 ### Test 11: Vollstaendiger End-to-End-Lauf
@@ -808,11 +853,21 @@ docker compose down
 
 ### Frontend und Deployment
 
-- Streamlit-Dashboard mit Commerce-KPIs, Zeitreihen, Session-Funnel, Filtern und Insight-Kacheln
-- Testbare Dashboard-Logik unter `src/omnichannel_platform/dashboard/`
-- Multi-Stage-Dockerfile fuer Pipeline- und Dashboard-Image
-- Compose-Service fuer Dashboard und `platform-runner`
-- Terraform-Fundament fuer Artifact Registry und Cloud Run Deployment
+- Streamlit-Dashboard mit 6 Seiten: Commerce KPIs, Zeitliche Trends, Kategorien & Regionen, Session-Analyse, Wetter & FX, Pipeline-Status
+- Sidebar-Filter (Zeitraum, Status, Kategorie, Bundesstaat, Zahlungsart) wirken seitenuebergreifend
+- Testbare Dashboard-Logik unter `src/omnichannel_platform/dashboard/logic.py` mit eigenen Unit-Tests
+- Multi-Stage-Dockerfile (Python 3.11-slim) fuer Pipeline- und Dashboard-Image
+- Docker-Compose mit 9 Services inkl. `platform-runner` (Idle-Container fuer Pipeline-Ausfuehrung) und Dashboard
+- `.dockerignore` fuer schlanken Build-Context
+
+### Cloud und IaC
+
+- Terraform provisioniert automatisch benoetigte GCP APIs (Artifact Registry, BigQuery, Cloud Build, Cloud Run, Storage)
+- Artifact Registry Repository fuer Container-Images
+- Optionaler Cloud Run Service mit konfigurierbaren Env-Vars, Scaling und IAM (public/private)
+- `make deploy-dashboard-gcp` als One-Command-Deploy: Image bauen, pushen, Terraform-Apply
+- `.env.example` mit allen konfigurierbaren Umgebungsvariablen (Datenbanken, APIs, Cloud, Dashboard)
+- `terraform.tfvars.example` als Vorlage fuer GCP-Konfiguration
 
 ---
 
@@ -945,6 +1000,20 @@ Deployment-Pfade:
 - im Compose-Stack per `docker compose up -d dashboard`
 - in GCP als Cloud-Run-Zielarchitektur
 
+Dashboard-Seiten im Detail:
+
+| Seite | Inhalt |
+|---|---|
+| Commerce KPIs | 8 Metriken (Bestellungen, Umsatz BRL/USD, Durchschnittsbestellwert, Artikel, Kunden, Fracht, Lieferquote), Insight-Kacheln, Pie-Chart (Status), Bar-Chart (Zahlungsart) |
+| Zeitliche Trends | Bestellvolumen und Umsatzentwicklung nach Tag/Woche/Monat, gestapelter Kategorien-Umsatz |
+| Kategorien & Regionen | Top-10 Kategorien nach Umsatz, Top-10 Bundesstaaten, Heatmap (Kategorie x Bundesstaat) |
+| Session-Analyse | Session-KPIs (Visitors, Events/Session, Conversion Rate), Event-Funnel, Histogramm der Event-Verteilung |
+| Wetter & FX | Temperaturverlauf, Niederschlag, EUR/USD- und EUR/BRL-Kurse, Scatter (Temperatur vs. Bestellwert) |
+| Pipeline-Status | Ingestion-Audit-Tabelle, Zeilen-/Spalten-Statistiken pro Warehouse-Tabelle, Technologie-Stack |
+
+Die Sidebar erlaubt kombinierte Filterung nach Zeitraum, Bestellstatus, Produktkategorie, Bundesstaat und Zahlungsart.
+Alle Filter wirken gleichzeitig -- die gefilterte Trefferanzahl wird in Echtzeit angezeigt.
+
 ---
 
 ## GCP- und Terraform-Fundament
@@ -952,12 +1021,49 @@ Deployment-Pfade:
 [infra/terraform/gcp](infra/terraform/gcp):
 
 - Google-Provider `5.6.0` mit Credentials-File
-- Service-Konto mit BigQuery-Admin und Storage-Admin
+- Automatische API-Aktivierung (Artifact Registry, BigQuery, Cloud Build, Cloud Run, Storage)
+- Service-Konto mit BigQuery-Admin, Storage-Admin und Artifact-Registry-Reader
 - 2 GCS-Buckets (Raw, Processed) mit Versioning und 30-Tage-Lifecycle
 - 3 BigQuery-Datasets: `commerce_raw`, `commerce_staging`, `commerce_marts`
 - 1 Artifact Registry Repository fuer Container-Images
-- 1 optionaler Cloud Run Service fuer das Streamlit-Dashboard
+- 1 optionaler Cloud Run Service fuer das Streamlit-Dashboard (wird nur erstellt wenn `dashboard_container_image` gesetzt ist)
 - Location: `US` (kompatibel mit Public Datasets)
+
+### GCP Cloud-Deployment Schritt fuer Schritt
+
+```bash
+# 1. Voraussetzungen: gcloud CLI installiert, GCP-Projekt erstellt, Service Account JSON vorhanden
+
+# 2. terraform.tfvars anlegen
+cd infra/terraform/gcp
+cp terraform.tfvars.example terraform.tfvars
+# In terraform.tfvars anpassen:
+#   credentials           = "~/.gcp/my-creds.json"
+#   project_id            = "your-gcp-project-id"
+#   region                = "us-central1"
+#   raw_bucket_name       = "your-project-raw-data"
+#   processed_bucket_name = "your-project-processed-data"
+cd ../../..
+
+# 3. Terraform initialisieren und Infrastruktur provisionieren (ohne Dashboard-Image)
+make terraform-init-gcp
+make terraform-plan-gcp
+make terraform-apply-gcp
+
+# 4. Docker fuer Artifact Registry authentifizieren
+gcloud auth configure-docker us-central1-docker.pkg.dev
+
+# 5. Dashboard-Image bauen und pushen + Cloud Run deployen
+make deploy-dashboard-gcp \
+  GCP_PROJECT_ID=your-gcp-project-id \
+  GCP_REGION=us-central1
+
+# 6. Cloud-Run-URL abrufen
+terraform -chdir=infra/terraform/gcp output dashboard_service_url
+```
+
+Das Cloud-Run-Dashboard benoetigt eine erreichbare PostgreSQL-Instanz (z.B. Cloud SQL).
+Die Verbindungsparameter werden ueber `dashboard_env_vars` in `terraform.tfvars` konfiguriert.
 
 ---
 
