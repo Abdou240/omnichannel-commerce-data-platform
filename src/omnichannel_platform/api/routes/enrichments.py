@@ -22,7 +22,7 @@ def list_products(
     schema = warehouse_schema()
     params: dict[str, object] = {}
     where = ""
-    if source:
+    if source is not None:
         where = " WHERE source_system = :source"
         params["source"] = source
 
@@ -41,13 +41,13 @@ def list_weather(
     schema = raw_schema()
     conditions: list[str] = []
     params: dict[str, object] = {}
-    if city:
+    if city is not None:
         conditions.append("city = :city")
         params["city"] = city
-    if start_date:
+    if start_date is not None:
         conditions.append("weather_date >= :start_date")
         params["start_date"] = start_date
-    if end_date:
+    if end_date is not None:
         conditions.append("weather_date <= :end_date")
         params["end_date"] = end_date
     where = f" WHERE {' AND '.join(conditions)}" if conditions else ""
@@ -66,13 +66,13 @@ def list_fx_rates(
     schema = raw_schema()
     conditions: list[str] = []
     params: dict[str, object] = {}
-    if quote_currency:
+    if quote_currency is not None:
         conditions.append("quote_currency = :quote_currency")
         params["quote_currency"] = quote_currency
-    if start_date:
+    if start_date is not None:
         conditions.append("rate_date >= :start_date")
         params["start_date"] = start_date
-    if end_date:
+    if end_date is not None:
         conditions.append("rate_date <= :end_date")
         params["end_date"] = end_date
     where = f" WHERE {' AND '.join(conditions)}" if conditions else ""

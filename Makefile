@@ -78,7 +78,7 @@ run-dashboard:
 	streamlit run dashboard/app.py --server.address 0.0.0.0 --server.port $(DASHBOARD_PORT)
 
 run-api:
-	uvicorn omnichannel_platform.api.main:app --host 0.0.0.0 --port 8000
+	uvicorn omnichannel_platform.api.main:app --host 0.0.0.0 --port 8000 --reload
 
 kestra-info:
 	@echo "Kestra flow lives under orchestration/kestra/flows/daily_platform_ingestion.yml"

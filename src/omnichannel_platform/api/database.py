@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 from collections.abc import Mapping
 from functools import lru_cache
 from typing import Any
@@ -10,6 +11,15 @@ from typing import Any
 import pandas as pd
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
+
+_IDENTIFIER_RE = re.compile(r"^[a-z_][a-z0-9_]*$")
+
+
+def _validate_identifier(name: str) -> str:
+    """Ensure *name* is a safe SQL identifier (schema/table) to prevent injection."""
+    if not _IDENTIFIER_RE.match(name):
+        raise ValueError(f"Invalid SQL identifier: {name!r}")
+    return name
 
 
 def _database_url() -> str:
@@ -24,11 +34,11 @@ def _database_url() -> str:
 
 
 def warehouse_schema() -> str:
-    return os.getenv("DASHBOARD_WAREHOUSE_SCHEMA", "staging")
+    return _validate_identifier(os.getenv("DASHBOARD_WAREHOUSE_SCHEMA", "staging"))
 
 
 def raw_schema() -> str:
-    return os.getenv("DASHBOARD_RAW_SCHEMA", "raw")
+    return _validate_identifier(os.getenv("DASHBOARD_RAW_SCHEMA", "raw"))
 
 
 @lru_cache(maxsize=1)
@@ -38,6 +48,11 @@ def get_engine() -> Engine:
         connect_args={"connect_timeout": 5},
         pool_pre_ping=True,
     )
+
+
+def _reset_engine() -> None:
+    """Clear the cached engine — useful for test teardown."""
+    get_engine.cache_clear()
 
 
 def check_database() -> str:

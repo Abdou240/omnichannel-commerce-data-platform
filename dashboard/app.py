@@ -254,7 +254,6 @@ def main() -> None:
             "Bitte zuerst den Plattform-Stack und die Pipeline starten:\n\n"
             "```bash\n"
             "docker compose up -d\n"
-            "docker compose up -d api\n"
             "make run-batch\n"
             "make run-streaming\n"
             "make run-warehouse\n"

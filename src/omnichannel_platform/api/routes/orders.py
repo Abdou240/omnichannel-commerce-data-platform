@@ -25,19 +25,19 @@ def list_orders(
     schema = warehouse_schema()
     conditions: list[str] = []
     params: dict[str, object] = {}
-    if status:
+    if status is not None:
         conditions.append("order_status = :status")
         params["status"] = status
-    if category:
+    if category is not None:
         conditions.append("product_category_name = :category")
         params["category"] = category
-    if state:
+    if state is not None:
         conditions.append("customer_state = :state")
         params["state"] = state
-    if start_date:
+    if start_date is not None:
         conditions.append("order_date >= :start_date")
         params["start_date"] = start_date
-    if end_date:
+    if end_date is not None:
         conditions.append("order_date <= :end_date")
         params["end_date"] = end_date
 
@@ -58,10 +58,10 @@ def order_kpis(
     schema = warehouse_schema()
     conditions: list[str] = []
     params: dict[str, object] = {}
-    if start_date:
+    if start_date is not None:
         conditions.append("order_date >= :start_date")
         params["start_date"] = start_date
-    if end_date:
+    if end_date is not None:
         conditions.append("order_date <= :end_date")
         params["end_date"] = end_date
     where = f" WHERE {' AND '.join(conditions)}" if conditions else ""
