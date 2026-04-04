@@ -1,6 +1,6 @@
 # ============================================================================
 # Docker Compose: Omnichannel Commerce Data Platform
-# Zweck: Lokaler Entwicklungs-Stack mit 9 Services
+# Zweck: Lokaler Entwicklungs-Stack mit 10 Services
 # Start: docker compose up -d
 # ============================================================================
 
@@ -209,6 +209,30 @@ services:
         condition: service_started
 
   # --------------------------------------------------------------------------
+  # API -- FastAPI REST-API als Data-Access-Layer
+  # Erreichbar unter http://localhost:8000
+  # Swagger-Docs unter http://localhost:8000/docs
+  # --------------------------------------------------------------------------
+  api:
+    build:
+      context: .
+      target: api
+    container_name: omnichannel-api
+    ports:
+      - "8000:8000"    # FastAPI (Uvicorn)
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: commerce_platform
+      POSTGRES_USER: commerce
+      POSTGRES_PASSWORD: commerce
+      DASHBOARD_WAREHOUSE_SCHEMA: staging
+      DASHBOARD_RAW_SCHEMA: raw
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # --------------------------------------------------------------------------
   # Dashboard -- Streamlit-Frontend mit 8 Seiten
   # Erreichbar unter http://localhost:8501
   # Liest Daten aus PostgreSQL (Raw + Staging + Marts)
@@ -222,6 +246,7 @@ services:
       - "8501:8080"    # Host:8501 -> Container:8080 (Dockerfile nutzt PORT=8080)
     environment:
       PORT: "8080"
+      API_BASE_URL: http://api:8000
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       POSTGRES_DB: commerce_platform
@@ -230,6 +255,8 @@ services:
       DASHBOARD_WAREHOUSE_SCHEMA: staging
       DASHBOARD_RAW_SCHEMA: raw
     depends_on:
+      api:
+        condition: service_healthy
       postgres:
         condition: service_healthy
 

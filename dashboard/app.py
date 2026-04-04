@@ -1,14 +1,19 @@
-"""Streamlit dashboard for the Omnichannel Commerce Data Platform."""
+"""Streamlit dashboard for the Omnichannel Commerce Data Platform.
+
+Supports two data-loading modes:
+  1. API mode (API_BASE_URL is set): fetches data from the FastAPI REST API
+  2. Direct DB mode (default): reads from PostgreSQL via SQLAlchemy
+"""
 
 from __future__ import annotations
 
+import os
 from datetime import date
 
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
-from sqlalchemy import create_engine
 
 from omnichannel_platform.dashboard.logic import (
     apply_order_filters,
@@ -19,6 +24,8 @@ from omnichannel_platform.dashboard.logic import (
     raw_schema,
     warehouse_schema,
 )
+
+API_BASE_URL = os.getenv("API_BASE_URL", "").rstrip("/")
 
 st.set_page_config(
     page_title="Omnichannel Commerce Data Platform",
@@ -57,23 +64,77 @@ RAW_SCHEMA = raw_schema()
 
 @st.cache_resource
 def get_engine():
+    from sqlalchemy import create_engine
+
     return create_engine(dashboard_database_url())
 
 
 @st.cache_data(ttl=300)
-def load_dataframe(query: str) -> pd.DataFrame:
+def _load_from_db(query: str) -> pd.DataFrame:
     return pd.read_sql(query, get_engine())
 
 
+@st.cache_data(ttl=300)
+def _load_from_api(endpoint: str) -> pd.DataFrame:
+    import requests
+
+    resp = requests.get(f"{API_BASE_URL}{endpoint}", timeout=10)
+    resp.raise_for_status()
+    data = resp.json()
+    if isinstance(data, list):
+        return pd.DataFrame(data) if data else pd.DataFrame()
+    return pd.DataFrame()
+
+
+@st.cache_data(ttl=300)
+def _load_api_json(endpoint: str) -> dict:
+    import requests
+
+    resp = requests.get(f"{API_BASE_URL}{endpoint}", timeout=10)
+    resp.raise_for_status()
+    data = resp.json()
+    return data if isinstance(data, dict) else {}
+
+
+def load_dataframe(query: str, api_endpoint: str | None = None) -> pd.DataFrame:
+    if API_BASE_URL and api_endpoint:
+        return _load_from_api(api_endpoint)
+    return _load_from_db(query)
+
+
 def load_datasets() -> dict[str, pd.DataFrame]:
+    pipeline_payload = _load_api_json("/api/v1/pipeline/status") if API_BASE_URL else {}
+
     return {
-        "orders": load_dataframe(f"select * from {WAREHOUSE_SCHEMA}.fct_commerce_orders"),
-        "sessions": load_dataframe(f"select * from {WAREHOUSE_SCHEMA}.fct_retailrocket_sessions"),
-        "products": load_dataframe(f"select * from {WAREHOUSE_SCHEMA}.dim_products"),
-        "weather": load_dataframe(f"select * from {RAW_SCHEMA}.open_meteo_weather"),
-        "fx": load_dataframe(f"select * from {RAW_SCHEMA}.frankfurter_fx_rates"),
-        "audit": load_dataframe(
-            f"select * from {RAW_SCHEMA}.ingestion_audit order by loaded_at desc"
+        "orders": load_dataframe(
+            f"select * from {WAREHOUSE_SCHEMA}.fct_commerce_orders",
+            "/api/v1/orders?limit=5000",
+        ),
+        "sessions": load_dataframe(
+            f"select * from {WAREHOUSE_SCHEMA}.fct_retailrocket_sessions",
+            "/api/v1/sessions?limit=5000",
+        ),
+        "products": load_dataframe(
+            f"select * from {WAREHOUSE_SCHEMA}.dim_products",
+            "/api/v1/products?limit=5000",
+        ),
+        "weather": load_dataframe(
+            f"select * from {RAW_SCHEMA}.open_meteo_weather",
+            "/api/v1/weather?limit=5000",
+        ),
+        "fx": load_dataframe(
+            f"select * from {RAW_SCHEMA}.frankfurter_fx_rates",
+            "/api/v1/fx-rates?limit=5000",
+        ),
+        "audit": (
+            pd.DataFrame(pipeline_payload.get("audit", []))
+            if API_BASE_URL
+            else load_dataframe(
+                f"select * from {RAW_SCHEMA}.ingestion_audit order by loaded_at desc"
+            )
+        ),
+        "table_stats": (
+            pd.DataFrame(pipeline_payload.get("tables", [])) if API_BASE_URL else pd.DataFrame()
         ),
     }
 
@@ -88,6 +149,8 @@ def parse_dates(dataframes: dict[str, pd.DataFrame]) -> None:
     if not sessions.empty:
         sessions["session_start_ts"] = pd.to_datetime(sessions["session_start_ts"])
         sessions["session_end_ts"] = pd.to_datetime(sessions["session_end_ts"])
+        if "sample_item_id" not in sessions.columns:
+            sessions["sample_item_id"] = None
 
     weather = dataframes["weather"]
     if not weather.empty:
@@ -96,6 +159,30 @@ def parse_dates(dataframes: dict[str, pd.DataFrame]) -> None:
     fx = dataframes["fx"]
     if not fx.empty:
         fx["rate_date"] = pd.to_datetime(fx["rate_date"])
+
+    products = dataframes["products"]
+    if (
+        not products.empty
+        and "product_category_name" not in products.columns
+        and "category" in products.columns
+    ):
+        products["product_category_name"] = products["category"]
+
+    audit = dataframes["audit"]
+    if not audit.empty and "loaded_at" in audit.columns:
+        audit["loaded_at"] = pd.to_datetime(audit["loaded_at"])
+
+    table_stats = dataframes["table_stats"]
+    if not table_stats.empty and {"table_name", "row_count", "column_count"}.issubset(
+        table_stats.columns
+    ):
+        dataframes["table_stats"] = table_stats.rename(
+            columns={
+                "table_name": "Tabelle",
+                "row_count": "Zeilen",
+                "column_count": "Spalten",
+            }
+        )
 
 
 def selected_date_window(min_date: date, max_date: date) -> tuple[date | None, date | None]:
@@ -153,6 +240,12 @@ def main() -> None:
         unsafe_allow_html=True,
     )
 
+    mode_label = "API-Modus" if API_BASE_URL else "Direkter DB-Modus"
+    st.caption(
+        f"Datenzugriff: {mode_label}"
+        + (f" via `{API_BASE_URL}`" if API_BASE_URL else " via SQLAlchemy/PostgreSQL")
+    )
+
     try:
         dataframes = load_datasets()
     except Exception as exc:
@@ -161,6 +254,7 @@ def main() -> None:
             "Bitte zuerst den Plattform-Stack und die Pipeline starten:\n\n"
             "```bash\n"
             "docker compose up -d\n"
+            "docker compose up -d api\n"
             "make run-batch\n"
             "make run-streaming\n"
             "make run-warehouse\n"
@@ -618,15 +712,17 @@ def main() -> None:
                 use_container_width=True,
             )
 
-        stats = build_table_stats(
-            {
-                "fct_commerce_orders": dataframes["orders"],
-                "fct_retailrocket_sessions": dataframes["sessions"],
-                "dim_products": dataframes["products"],
-                "open_meteo_weather": dataframes["weather"],
-                "frankfurter_fx_rates": dataframes["fx"],
-            }
-        )
+        stats = dataframes["table_stats"]
+        if stats.empty:
+            stats = build_table_stats(
+                {
+                    "fct_commerce_orders": dataframes["orders"],
+                    "fct_retailrocket_sessions": dataframes["sessions"],
+                    "dim_products": dataframes["products"],
+                    "open_meteo_weather": dataframes["weather"],
+                    "frankfurter_fx_rates": dataframes["fx"],
+                }
+            )
         st.dataframe(stats, use_container_width=True)
 
         st.markdown(

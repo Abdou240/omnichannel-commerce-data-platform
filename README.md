@@ -252,8 +252,8 @@ Eine ergaenzende Architekturuebersicht liegt in [docs/architecture.md](docs/arch
 .
 ├── .dockerignore                    # Schlanker Docker-Build-Context
 ├── .github/workflows/              # CI/CD: lint, pytest, dbt-checks, integration, deploy-gcp
-├── Dockerfile                       # Multi-Stage Build (pipeline + dashboard)
-├── docker-compose.yml               # 9 Services (Postgres, Redpanda, Kestra, ...)
+├── Dockerfile                       # Multi-Stage Build (pipeline + api + dashboard)
+├── docker-compose.yml               # 10 Services (Postgres, API, Dashboard, Redpanda, Kestra, ...)
 ├── Makefile                         # Alle Make-Targets
 ├── pyproject.toml                   # Python-Abhaengigkeiten und Extras
 ├── dashboard/                       # Streamlit-Frontend (app.py)
@@ -275,6 +275,7 @@ Eine ergaenzende Architekturuebersicht liegt in [docs/architecture.md](docs/arch
 ├── spark/jobs/                      # clickstream_sessionization.py
 ├── sql/postgres/init/               # Schema-Init + Raw-Tabellen-DDL
 ├── src/omnichannel_platform/
+│   ├── api/                         # FastAPI-App, Router, Models, DB-Zugriff
 │   ├── batch/                       # commerce_batch_ingestion, source_plans, orders_ingestion
 │   ├── common/                      # logging, settings, clients (Postgres/Mongo), io
 │   ├── dashboard/                   # testbare Dashboard-Logik (logic.py)
@@ -283,7 +284,7 @@ Eine ergaenzende Architekturuebersicht liegt in [docs/architecture.md](docs/arch
 │   └── warehouse/                   # layer_catalog
 ├── tests/
 │   ├── fixtures/                    # sample_orders.json, sample_clickstream_events.jsonl
-│   ├── unit/                        # 11 Testdateien, 27 Tests
+│   ├── unit/                        # 12+ Testdateien, API- und Dashboard-Tests
 │   └── integration/                 # 2 Integrations-Checks
 └── warehouse/
     ├── dbt/
@@ -302,8 +303,9 @@ Eine ergaenzende Architekturuebersicht liegt in [docs/architecture.md](docs/arch
 Wichtige Einstiegspunkte:
 
 - [Dockerfile](Dockerfile) -- Multi-Stage Docker Build
-- [docker-compose.yml](docker-compose.yml) -- 9-Service Plattform-Stack
+- [docker-compose.yml](docker-compose.yml) -- 10-Service Plattform-Stack
 - [dashboard/app.py](dashboard/app.py) -- Streamlit-Frontend
+- [src/omnichannel_platform/api/main.py](src/omnichannel_platform/api/main.py) -- FastAPI-REST-API
 - [src/omnichannel_platform/batch/commerce_batch_ingestion.py](src/omnichannel_platform/batch/commerce_batch_ingestion.py) -- Batch-Pipeline
 - [src/omnichannel_platform/streaming/clickstream_consumer.py](src/omnichannel_platform/streaming/clickstream_consumer.py) -- Streaming-Pipeline
 - [src/omnichannel_platform/quality/rules_catalog.py](src/omnichannel_platform/quality/rules_catalog.py) -- Quality-Runner
@@ -334,6 +336,9 @@ docker compose up -d postgres
 # Optional, aber empfohlen fuer den vollen E2E-Pfad:
 docker compose up -d mongo redpanda
 
+# Optional fuer Dashboard-im-API-Modus:
+docker compose up -d api
+
 # 4. PostgreSQL pruefen
 docker compose exec postgres pg_isready -U commerce -d commerce_platform
 ```
@@ -346,8 +351,9 @@ docker compose exec postgres pg_isready -U commerce -d commerce_platform
 |---|---|---|---|
 | `commerce_batch_ingestion.py` | `postgres` | `mongo` | Batch laedt immer nach PostgreSQL. Mongo-Persist wird bei Nicht-Erreichbarkeit uebersprungen. |
 | `clickstream_consumer.py` | `postgres` | `redpanda`, `mongo` | Replay persistiert immer nach PostgreSQL. Kafka- und Mongo-Schritte sind optional. |
+| `omnichannel_platform.api.main` | `postgres` | — | FastAPI stellt Orders, Sessions, Enrichments, Health und Pipeline-Status als REST-API bereit. |
 | `rules_catalog.py` | `postgres` | — | SQL-Checks brauchen die Raw-/Mart-Tabellen in PostgreSQL. |
-| `dashboard/app.py` | `postgres` | — | Dashboard liest aus Raw/Staging/Marts. |
+| `dashboard/app.py` | `postgres` | `api` | Dashboard kann direkt aus PostgreSQL lesen oder ueber die FastAPI-Schicht arbeiten. |
 
 ### Typische lokale Stolpersteine
 
@@ -786,7 +792,7 @@ make install-local
 
 #### Was macht `make install-local`?
 
-Der Befehl fuehrt `pip install -e ".[dev,batch,streaming,warehouse,nosql,quality,dashboard]"` aus.
+Der Befehl fuehrt `pip install -e ".[dev,batch,streaming,warehouse,nosql,quality,dashboard,api]"` aus.
 Das installiert das Projekt im editierbaren Modus (`-e`) zusammen mit allen optionalen Abhaengigkeitsgruppen:
 
 | Extra-Gruppe | Installierte Pakete | Wofuer benoetigt |
@@ -798,6 +804,7 @@ Das installiert das Projekt im editierbaren Modus (`-e`) zusammen mit allen opti
 | **nosql** | pymongo | MongoDB-Raw-Document-Store |
 | **quality** | sqlalchemy, psycopg | SQL-Expectations gegen PostgreSQL ausfuehren |
 | **dashboard** | streamlit, plotly, pandas, sqlalchemy, psycopg | Streamlit-Frontend mit Plotly-Charts |
+| **api** | fastapi, uvicorn, httpx, pandas, sqlalchemy, psycopg | REST-API + API-Tests |
 
 Zusaetzlich werden die Basispakete `pydantic`, `python-dotenv` und `PyYAML` installiert, die fuer
 Konfigurationsloading und Settings benoetigt werden.
@@ -807,7 +814,7 @@ Konfigurationsloading und Settings benoetigt werden.
 ```bash
 make install          # Nur Basispakete (pydantic, dotenv, PyYAML)
 make install-dev      # Basispakete + dev (pytest, ruff, pre-commit)
-make install-local    # Alles ausser Spark (empfohlen fuer lokale Entwicklung)
+make install-local    # Alles ausser Spark, inklusive API (empfohlen fuer lokale Entwicklung)
 ```
 
 Spark (`pyspark`) wird bewusst nicht ueber `install-local` installiert, da es eine eigene
@@ -836,7 +843,7 @@ Die wichtigsten Variablengruppen in `.env`:
 | **MinIO** | `MINIO_ENDPOINT`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY` | `localhost:9000`, `minio`, `minio123` | Lokales Object Storage |
 | **Warehouse** | `WAREHOUSE_LOCAL_ENGINE`, `DBT_TARGET` | `postgres`, `dev` | Steuerung des lokalen Warehouse-Backends |
 | **Kestra** | `KESTRA_NAMESPACE`, `KESTRA_HOST` | `omnichannel.platform.dev`, `http://localhost:8080` | Orchestrierungs-Endpunkte |
-| **Dashboard** | `DASHBOARD_PORT`, `DASHBOARD_WAREHOUSE_SCHEMA`, `DASHBOARD_RAW_SCHEMA` | `8501`, `staging`, `raw` | Frontend-Konfiguration |
+| **Dashboard** | `DASHBOARD_PORT`, `DASHBOARD_WAREHOUSE_SCHEMA`, `DASHBOARD_RAW_SCHEMA`, `API_BASE_URL` | `8501`, `staging`, `raw`, leer | Frontend-Konfiguration und optionaler API-Modus |
 | **GCP** | `GCP_PROJECT_ID`, `GCP_REGION`, `GOOGLE_APPLICATION_CREDENTIALS` | `TODO_*` (muss angepasst werden) | Cloud-Deployment |
 
 **Fuer den lokalen Betrieb muessen in der Regel keine Werte geaendert werden.** Die Standardwerte
@@ -851,7 +858,7 @@ Die `.env`-Datei ist in `.gitignore` eingetragen und wird nicht eingecheckt.
 docker compose up -d
 ```
 
-Der Compose-Stack enthaelt: PostgreSQL 18, pgAdmin, Redpanda v25.3.9 + Console, MongoDB 7, MinIO, Kestra v1.1, einen `platform-runner`-Container und das Streamlit-Dashboard.
+Der Compose-Stack enthaelt: PostgreSQL 18, pgAdmin, Redpanda v25.3.9 + Console, MongoDB 7, MinIO, Kestra v1.1, einen `platform-runner`-Container, die FastAPI-Schicht und das Streamlit-Dashboard.
 
 | Service | Port | Zweck |
 |---|---|---|
@@ -863,6 +870,7 @@ Der Compose-Stack enthaelt: PostgreSQL 18, pgAdmin, Redpanda v25.3.9 + Console, 
 | minio | 9000 / 9001 | Lokales Object Storage |
 | kestra | 8080 | Orchestrierungs-UI |
 | platform-runner | — | Idle-Container zum Ausfuehren von Pipeline-Befehlen per `docker compose exec` |
+| api | 8000 | FastAPI REST-API + Swagger/OpenAPI |
 | dashboard | 8501 | Streamlit-Frontend |
 
 Der `platform-runner` ist ein schlafender Container mit allen Pipeline-Abhaengigkeiten. Er erlaubt es, Pipeline-Schritte im Container-Kontext auszufuehren:
@@ -870,6 +878,7 @@ Der `platform-runner` ist ein schlafender Container mit allen Pipeline-Abhaengig
 ```bash
 docker compose exec platform-runner python -m omnichannel_platform.batch.commerce_batch_ingestion --env dev
 docker compose exec platform-runner python -m omnichannel_platform.streaming.clickstream_consumer --env dev --mode replay
+docker compose exec platform-runner uvicorn omnichannel_platform.api.main:app --host 0.0.0.0 --port 8000
 ```
 
 ### 4. Kafka-Topics anlegen
@@ -883,6 +892,7 @@ make kafka-topics
 ```bash
 make run-batch          # Batch-Ingestion (Olist + APIs)
 make run-streaming      # Retailrocket Replay
+make run-api            # FastAPI REST API lokal starten
 make run-warehouse      # dbt build (CI-Profil mit DuckDB)
 make run-quality        # Quality-Checks
 make run-dashboard      # Streamlit-Frontend lokal
@@ -902,7 +912,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 make install-local
 
-# Docker-Stack starten (PostgreSQL, Redpanda, MongoDB, MinIO, Kestra)
+# Docker-Stack starten (PostgreSQL, Redpanda, MongoDB, MinIO, Kestra, API, Dashboard)
 docker compose up -d
 
 # Warten bis PostgreSQL bereit ist
@@ -923,6 +933,7 @@ make test
 # tests/integration/test_repository_foundations.py    1 passed
 # tests/unit/test_batch_helpers.py                    1 passed
 # tests/unit/test_clients.py                          3 passed
+# tests/unit/test_api_routes.py                       5 passed
 # tests/unit/test_dashboard_insights.py               4 passed
 # tests/unit/test_dashboard_logic.py                  2 passed
 # tests/unit/test_frankfurter_edge_cases.py           2 passed
@@ -939,6 +950,7 @@ make test
 - `test_settings.py`: YAML-Config-Loading, Deep-Merge, Environment-Override
 - `test_ingestion_plans.py`: Batch-Source-Plans (Olist, Open Food Facts, Open-Meteo, Frankfurter), Streaming-Plan, Event-Routing, Event-Normalisierung
 - `test_sample_fixtures.py`: Fixture-Struktur (Orders, Clickstream)
+- `test_api_routes.py`: FastAPI-Endpunkte fuer Orders, Sessions, Pipeline-Status und Health
 - `test_dashboard_logic.py`: Filterlogik und Tabellenstatistiken fuer das Frontend
 - `test_quality_assets.py`: Quality-Asset-Discovery (Contracts + Expectations)
 - `test_clients.py`: PostgreSQL-Erreichbarkeitspruefung (`ensure_postgres_is_reachable`), MongoDB-Fehlerbehandlung
@@ -1183,15 +1195,60 @@ cd ../../..
 - 1 optionaler Cloud Run Service (wenn `dashboard_container_image` gesetzt ist)
 - IAM Bindings fuer BigQuery, Storage und Artifact Registry
 
-### Test 9: Dashboard lokal
+### Test 9: FastAPI lokal
+
+```bash
+# Voraussetzung: PostgreSQL muss laufen und Batch/dbt sollten Daten erzeugt haben
+
+# Option A: direkt lokal
+make run-api
+
+# Option B: als Docker-Service
+docker compose up -d api
+```
+
+Danach ist die API unter `http://localhost:8000` erreichbar.
+
+**Pruefung:**
+
+```bash
+# Root und Health
+curl http://localhost:8000/
+curl http://localhost:8000/api/v1/health
+
+# Swagger / OpenAPI
+open http://localhost:8000/docs
+
+# Beispiel-Endpunkte
+curl "http://localhost:8000/api/v1/orders?limit=5"
+curl "http://localhost:8000/api/v1/orders/kpis"
+curl "http://localhost:8000/api/v1/sessions?limit=5"
+curl "http://localhost:8000/api/v1/sessions/funnel"
+curl "http://localhost:8000/api/v1/products?limit=5"
+curl "http://localhost:8000/api/v1/weather?limit=5"
+curl "http://localhost:8000/api/v1/fx-rates?limit=5"
+curl "http://localhost:8000/api/v1/pipeline/status"
+```
+
+**Erwartung:**
+
+- `/docs` zeigt die interaktive Swagger-Oberflaeche
+- `/api/v1/health` liefert `{"status": "ok", "database": "connected"}` wenn PostgreSQL erreichbar ist
+- `/api/v1/pipeline/status` liefert `audit` und `tables`
+- das Dashboard kann im API-Modus auf diese Endpunkte zugreifen
+
+### Test 10: Dashboard lokal
 
 ```bash
 # Voraussetzung: Daten muessen im Warehouse vorhanden sein (Batch + dbt vorher ausfuehren)
 
-# Option A: direkt lokal (Python-Umgebung mit dashboard-Extras)
+# Option A: direkt lokal im API-Modus
+API_BASE_URL=http://localhost:8000 make run-dashboard
+
+# Option B: direkt lokal im DB-Modus
 make run-dashboard
 
-# Option B: als Docker-Container
+# Option C: als Docker-Container
 docker compose up -d dashboard
 ```
 
@@ -1217,11 +1274,20 @@ curl -f http://localhost:8501/_stcore/health
 
 **Wenn keine Daten vorhanden sind:** Das Dashboard zeigt eine Warnung mit den notwendigen Schritten (`make run-batch`, `make run-streaming`, `make run-warehouse`).
 
-### Test 10: Docker-Builds
+**Hinweis zum Datenzugriff:**
+
+- ohne `API_BASE_URL` liest das Dashboard direkt aus PostgreSQL
+- mit `API_BASE_URL=http://localhost:8000` nutzt es die FastAPI-Schicht
+- im Docker-Compose-Setup ist fuer `dashboard` automatisch `API_BASE_URL=http://api:8000` gesetzt
+
+### Test 11: Docker-Builds
 
 ```bash
 # Pipeline-Image (lokal)
 make docker-build-pipeline
+
+# API-Image
+make docker-build-api GCP_PROJECT_ID=your-project-id GCP_REGION=us-central1
 
 # Dashboard-Image (mit Cloud-Tag)
 make docker-build-dashboard GCP_PROJECT_ID=your-project-id GCP_REGION=us-central1
@@ -1230,7 +1296,7 @@ make docker-build-dashboard GCP_PROJECT_ID=your-project-id GCP_REGION=us-central
 docker images | grep omnichannel
 ```
 
-### Test 11: Vollstaendiger End-to-End-Lauf
+### Test 12: Vollstaendiger End-to-End-Lauf
 
 ```bash
 # 1. Stack starten
@@ -1255,7 +1321,11 @@ dbt build --project-dir warehouse/dbt --target dev
 # 7. Quality-Checks
 make run-quality
 
-# 8. Ergebnisse pruefen
+# 8. API pruefen
+curl http://localhost:8000/api/v1/health
+curl "http://localhost:8000/api/v1/pipeline/status"
+
+# 9. Ergebnisse pruefen
 docker compose exec postgres psql -U commerce -d commerce_platform -c "
   SELECT 'raw.olist_orders' as table_name, count(*) FROM raw.olist_orders
   UNION ALL SELECT 'raw.olist_order_items', count(*) FROM raw.olist_order_items
@@ -1271,10 +1341,10 @@ docker compose exec postgres psql -U commerce -d commerce_platform -c "
   UNION ALL SELECT 'staging.dim_products', count(*) FROM staging.dim_products;
 "
 
-# 9. Dashboard pruefen
+# 10. Dashboard pruefen
 curl -I http://localhost:8501
 
-# 10. Stack beenden
+# 11. Stack beenden
 docker compose down
 ```
 
@@ -1288,20 +1358,21 @@ docker compose down
 |---|---|---|
 | `make install` | Nur Basispakete (pydantic, dotenv, PyYAML) | Python-venv |
 | `make install-dev` | Basispakete + dev (pytest, ruff, pre-commit) | Python-venv |
-| `make install-local` | Alles ausser Spark (empfohlen) | Python-venv |
+| `make install-local` | Alles ausser Spark, inklusive API (empfohlen) | Python-venv |
 | `make lint` | Ruff-Linting ausfuehren | `make install-dev` |
-| `make test` | pytest-Suite ausfuehren (27 Tests) | `make install-dev` |
+| `make test` | pytest-Suite ausfuehren (inkl. API-Tests) | `make install-dev` |
 | `make pre-commit` | Pre-commit Hooks ausfuehren | `make install-dev` |
 
 ### Docker und Infrastruktur
 
 | Target | Zweck | Voraussetzung |
 |---|---|---|
-| `make up` | Docker-Compose-Stack starten (9 Services) | Docker installiert |
+| `make up` | Docker-Compose-Stack starten (10 Services) | Docker installiert |
 | `make down` | Docker-Compose-Stack stoppen | Docker |
 | `make logs` | Docker-Compose-Logs live anzeigen | Docker |
 | `make kafka-topics` | 5 Kafka-/Redpanda-Topics anlegen | Redpanda laeuft |
 | `make docker-build-pipeline` | Pipeline-Image lokal bauen (`Dockerfile` target `pipeline`) | Docker |
+| `make docker-build-api` | API-Image lokal bauen (`Dockerfile` target `api`) | Docker |
 | `make docker-build-dashboard` | Dashboard-Image bauen (kann mit `GCP_PROJECT_ID` und `GCP_REGION` getaggt werden) | Docker |
 
 ### Pipeline-Ausfuehrung
@@ -1310,6 +1381,7 @@ docker compose down
 |---|---|---|
 | `make run-batch` | Batch-Ingestion: Olist Seeds + Open Food Facts + Open-Meteo + Frankfurter | PostgreSQL laeuft |
 | `make run-streaming` | Retailrocket-Replay: JSONL lesen, normalisieren, Kafka + PG persistieren | PostgreSQL laeuft |
+| `make run-api` | FastAPI REST API lokal auf Port 8000 starten | PostgreSQL laeuft |
 | `make run-warehouse` | Layer-Planung + `dbt build` gegen DuckDB-CI-Profil | `make install-local` |
 | `make dbt-build-ci` | Nur `dbt build` gegen DuckDB (ohne Layer-Planung) | dbt installiert |
 | `make run-quality` | SQL-Expectations gegen PostgreSQL ausfuehren, JSON-Report schreiben | Optional: PostgreSQL |
@@ -1388,7 +1460,7 @@ docker compose down
 - Sidebar-Filter (Zeitraum, Status, Kategorie, Bundesstaat, Zahlungsart) wirken seitenuebergreifend
 - Testbare Dashboard-Logik unter `src/omnichannel_platform/dashboard/logic.py` mit eigenen Unit-Tests
 - Multi-Stage-Dockerfile (Python 3.11-slim) fuer Pipeline- und Dashboard-Image
-- Docker-Compose mit 9 Services inkl. `platform-runner` (Idle-Container fuer Pipeline-Ausfuehrung) und Dashboard
+- Docker-Compose mit 10 Services inkl. `platform-runner` (Idle-Container fuer Pipeline-Ausfuehrung), API und Dashboard
 - `.dockerignore` fuer schlanken Build-Context
 
 ### Cloud und IaC
@@ -1577,16 +1649,20 @@ print(f'Sessions: {len(df)}')
 **Starten:**
 
 ```bash
-# Option A: direkt lokal (schnellste Variante fuer Entwicklung)
+# Option A: direkt lokal im API-Modus
+API_BASE_URL=http://localhost:8000 make run-dashboard
+
+# Option B: direkt lokal im DB-Modus
 make run-dashboard
 # Entspricht: streamlit run dashboard/app.py --server.address 0.0.0.0 --server.port 8501
 
-# Option B: als Docker-Container (mit dem Rest des Stacks)
+# Option C: als Docker-Container (mit dem Rest des Stacks)
 docker compose up -d dashboard
 
-# Option C: nur Dashboard-Container isoliert starten
+# Option D: nur Dashboard-Container isoliert starten
 docker build --target dashboard -t omnichannel-dashboard:local .
 docker run -p 8501:8080 \
+  -e API_BASE_URL=http://host.docker.internal:8000 \
   -e POSTGRES_HOST=host.docker.internal \
   -e POSTGRES_PORT=5432 \
   -e POSTGRES_DB=commerce_platform \
@@ -1601,8 +1677,14 @@ docker run -p 8501:8080 \
 
 **Architektur des Dashboards:**
 
-Die Streamlit-App (`dashboard/app.py`) laedt beim Start alle relevanten DataFrames aus PostgreSQL
-und cached sie fuer 5 Minuten (`@st.cache_data(ttl=300)`). Die Geschaeftslogik (Filterung,
+Die Streamlit-App (`dashboard/app.py`) unterstuetzt zwei Datenmodi:
+
+- **API-Modus:** Wenn `API_BASE_URL` gesetzt ist, laedt das Dashboard Daten ueber die FastAPI-Schicht
+- **DB-Modus:** Ohne `API_BASE_URL` liest das Dashboard direkt per SQLAlchemy aus PostgreSQL
+
+Im Docker-Compose-Setup arbeitet das Dashboard standardmaessig im API-Modus gegen `http://api:8000`.
+
+Die Daten werden fuer 5 Minuten gecached (`@st.cache_data(ttl=300)`). Die Geschaeftslogik (Filterung,
 Insight-Ableitung, Tabellenstatistiken) liegt in `src/omnichannel_platform/dashboard/logic.py` --
 dadurch ist sie unabhaengig von Streamlit testbar.
 
@@ -1629,7 +1711,8 @@ Echtzeit in der Sidebar angezeigt.
 
 | Pfad | Befehl | URL |
 |---|---|---|
-| Lokal (Python) | `make run-dashboard` | `http://localhost:8501` |
+| Lokal (Python, API-Modus) | `API_BASE_URL=http://localhost:8000 make run-dashboard` | `http://localhost:8501` |
+| Lokal (Python, DB-Modus) | `make run-dashboard` | `http://localhost:8501` |
 | Docker Compose | `docker compose up -d dashboard` | `http://localhost:8501` |
 | GCP Cloud Run | `make deploy-dashboard-gcp` | Cloud-Run-URL (Terraform-Output) |
 
@@ -1709,7 +1792,7 @@ Die Verbindungsparameter werden ueber `dashboard_env_vars` in `terraform.tfvars`
 | Workflow | Trigger | Prueft |
 |---|---|---|
 | [lint.yml](.github/workflows/lint.yml) | push main + PRs | `pre-commit run --all-files` |
-| [tests.yml](.github/workflows/tests.yml) | push main + PRs | `pytest` (27 Tests) |
+| [tests.yml](.github/workflows/tests.yml) | push main + PRs | `pytest` (inkl. API-Tests) |
 | [dbt-checks.yml](.github/workflows/dbt-checks.yml) | push main + PRs | `dbt parse` + `dbt build` (DuckDB CI-Profil) |
 | [integration.yml](.github/workflows/integration.yml) | push main + PRs | PostgreSQL-Service, Batch/Streaming/Quality/dbt-End-to-End und Docker-Builds |
 | [deploy-gcp.yml](.github/workflows/deploy-gcp.yml) | workflow_dispatch (manuell) | Dashboard-Image bauen, nach Artifact Registry pushen und auf Cloud Run deployen |
@@ -1724,8 +1807,8 @@ schlaegt fehl, wenn Codeformatierungs- oder Linting-Regeln verletzt werden.
 
 #### tests.yml
 
-Installiert die `dev`-, `batch`- und `dashboard`-Extras und fuehrt `pytest` aus. Testet alle 27 Tests
-(11 Unit-Testdateien + 2 Integrations-Testdateien). Kein PostgreSQL noetig -- alle Tests
+Installiert die `dev`-, `batch`-, `dashboard`- und `api`-Extras und fuehrt `pytest` aus.
+(12 Unit-Testdateien + 2 Integrations-Testdateien). Kein PostgreSQL noetig -- alle Tests
 laufen rein lokal gegen Fixtures und YAML-Konfiguration.
 
 #### dbt-checks.yml
@@ -1741,7 +1824,7 @@ den kompletten Pipeline-Pfad:
 
 1. Schema-Initialisierung (SQL-DDL aus `sql/postgres/init/`)
 2. Lint (`ruff check .`)
-3. pytest (alle 27 Tests)
+3. pytest (inkl. API-Tests)
 4. Batch-Ingestion (`--source olist` -- nur Olist Seeds, keine API-Aufrufe in CI)
 5. Verifizierung: `raw.ingestion_audit` enthaelt Olist-Eintrag
 6. Streaming-Replay (`--mode replay`)

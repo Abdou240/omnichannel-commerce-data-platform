@@ -11,6 +11,8 @@ def test_repository_contains_key_foundation_files() -> None:
         Path("orchestration/kestra/flows/daily_platform_ingestion.yml"),
         Path("data/sample/batch/open_food_facts_products_sample.json"),
         Path("data/sample/streaming/retailrocket_events.jsonl"),
+        Path("src/omnichannel_platform/api/main.py"),
+        Path("src/omnichannel_platform/api/routes/orders.py"),
         Path("warehouse/dbt/dbt_project.yml"),
         Path("warehouse/dbt/macros/raw_relations.sql"),
         Path("warehouse/dbt/models/public_sources.yml"),

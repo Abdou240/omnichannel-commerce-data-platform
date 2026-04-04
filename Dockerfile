@@ -20,7 +20,7 @@ COPY orchestration/ orchestration/
 COPY dashboard/ dashboard/
 COPY Makefile .
 
-RUN pip install --no-cache-dir -e ".[batch,streaming,warehouse,nosql,quality,dashboard]"
+RUN pip install --no-cache-dir -e ".[batch,streaming,warehouse,nosql,quality,dashboard,api]"
 
 # ---------------------------------------------------------------------------
 # Stage: pipeline -- batch, streaming, quality CLI entry points
@@ -58,3 +58,22 @@ HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
 
 ENTRYPOINT ["/bin/sh", "-lc"]
 CMD ["streamlit run dashboard/app.py --server.port=${PORT:-8080} --server.address=0.0.0.0 --server.headless=true"]
+
+# ---------------------------------------------------------------------------
+# Stage: api -- FastAPI REST API
+# ---------------------------------------------------------------------------
+FROM base AS api
+
+ENV POSTGRES_HOST=postgres
+ENV POSTGRES_PORT=5432
+ENV POSTGRES_DB=commerce_platform
+ENV POSTGRES_USER=commerce
+ENV POSTGRES_PASSWORD=commerce
+ENV API_PORT=8000
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD curl -f "http://localhost:${API_PORT}/api/v1/health" || exit 1
+
+CMD ["uvicorn", "omnichannel_platform.api.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -1,6 +1,6 @@
 # ============================================================================
 # Workflow: tests
-# Zweck: Alle 27 pytest-Tests ausfuehren (Unit + Integration)
+# Zweck: Komplette pytest-Suite ausfuehren (Unit + Integration)
 # Trigger: Bei jedem Push auf main und bei Pull Requests
 # Hinweis: Kein PostgreSQL noetig -- Tests laufen rein lokal gegen Fixtures
 # ============================================================================
@@ -28,13 +28,13 @@ jobs:
         with:
           python-version: "3.11"
 
-      # --- Projekt mit dev-, batch- und dashboard-Extras installieren ---
-      # dashboard-Extra noetig fuer Dashboard-Logik-Tests (pandas, streamlit)
+      # --- Projekt mit den noetigen Extras installieren ---
+      # api-Extra noetig fuer FastAPI-/TestClient-Tests
       - name: Install project dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ".[dev,batch,dashboard]"
+          python -m pip install -e ".[dev,batch,dashboard,api]"
 
-      # --- pytest ausfuehren (27 Tests aus tests/unit + tests/integration) ---
+      # --- pytest-Suite ausfuehren ---
       - name: Run pytest
         run: pytest

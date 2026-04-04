@@ -9,12 +9,13 @@ GCP_PROJECT_ID ?= demo-project-id
 GCP_REGION ?= us-central1
 ARTIFACT_REPO ?= omnichannel-platform
 DASHBOARD_IMAGE ?= $(GCP_REGION)-docker.pkg.dev/$(GCP_PROJECT_ID)/$(ARTIFACT_REPO)/dashboard:latest
+API_IMAGE ?= $(GCP_REGION)-docker.pkg.dev/$(GCP_PROJECT_ID)/$(ARTIFACT_REPO)/api:latest
 DASHBOARD_PORT ?= 8501
 
 .PHONY: install install-dev install-local lint test pre-commit up down logs tree \
 	run-batch run-streaming run-warehouse-plan run-warehouse run-quality run-serving \
-	run-dashboard dbt-build-ci kestra-info kafka-topics spark-sessionize \
-	docker-build-pipeline docker-build-dashboard terraform-init-gcp \
+	run-dashboard run-api dbt-build-ci kestra-info kafka-topics spark-sessionize \
+	docker-build-pipeline docker-build-dashboard docker-build-api terraform-init-gcp \
 	terraform-plan-gcp terraform-apply-gcp deploy-dashboard-gcp
 
 install:
@@ -27,7 +28,7 @@ install-dev:
 
 install-local:
 	$(PYTHON) -m pip install --upgrade pip
-	$(PYTHON) -m pip install -e ".[dev,batch,streaming,warehouse,nosql,quality,dashboard]"
+	$(PYTHON) -m pip install -e ".[dev,batch,streaming,warehouse,nosql,quality,dashboard,api]"
 
 lint:
 	ruff check .
@@ -76,6 +77,9 @@ run-serving:
 run-dashboard:
 	streamlit run dashboard/app.py --server.address 0.0.0.0 --server.port $(DASHBOARD_PORT)
 
+run-api:
+	uvicorn omnichannel_platform.api.main:app --host 0.0.0.0 --port 8000
+
 kestra-info:
 	@echo "Kestra flow lives under orchestration/kestra/flows/daily_platform_ingestion.yml"
 	@echo "TODO: run inside a worker image with project dependencies installed"
@@ -91,6 +95,9 @@ docker-build-pipeline:
 
 docker-build-dashboard:
 	docker build --target dashboard -t $(DASHBOARD_IMAGE) .
+
+docker-build-api:
+	docker build --target api -t $(API_IMAGE) .
 
 terraform-init-gcp:
 	terraform -chdir=$(TF_DIR) init
