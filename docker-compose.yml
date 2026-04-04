@@ -187,7 +187,7 @@ services:
       target: pipeline
     container_name: omnichannel-platform-runner
     entrypoint: ["/bin/sh", "-lc"]
-    command: sleep infinity
+    command: ["sleep infinity"]
     environment:
       ENVIRONMENT: dev
       POSTGRES_HOST: postgres

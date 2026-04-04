@@ -26,7 +26,10 @@ models:
   omnichannel_platform:
     staging:
       +materialized: view         # Staging-Modelle als Views (leichtgewichtig)
+      +schema: staging
     intermediate:
       +materialized: view         # Intermediate-Modelle als Views
+      +schema: staging
     marts:
       +materialized: table        # Mart-Modelle als physische Tabellen
+      +schema: marts
