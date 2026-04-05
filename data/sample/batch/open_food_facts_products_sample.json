@@ -1,0 +1,28 @@
+{
+  "products": [
+    {
+      "code": "3017620422003",
+      "product_name": "Nutella",
+      "brands": "Nutella",
+      "categories": "Chocolate spreads, Sweet spreads",
+      "image_front_url": "https://images.openfoodfacts.org/images/products/301/762/042/2003/front_en.820.400.jpg",
+      "ecoscore_grade": "unknown"
+    },
+    {
+      "code": "5449000000996",
+      "product_name": "Coca-Cola Original Taste",
+      "brands": "Coca-Cola",
+      "categories": "Beverages, Carbonated drinks, Colas",
+      "image_front_url": "https://images.openfoodfacts.org/images/products/544/900/000/0996/front_en.1035.400.jpg",
+      "ecoscore_grade": "not-applicable"
+    },
+    {
+      "code": "7622210449283",
+      "product_name": "Prince Goût Chocolat au blé complet",
+      "brands": "LU, Mondelez",
+      "categories": "Snacks, Sweet snacks, Biscuits",
+      "image_front_url": "https://images.openfoodfacts.org/images/products/762/221/044/9283/front_en.605.400.jpg",
+      "ecoscore_grade": "d"
+    }
+  ]
+}

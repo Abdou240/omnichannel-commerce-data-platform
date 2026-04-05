@@ -210,7 +210,7 @@ Raw-Document-Store fuer JSON-Payloads und Replay-Artefakte.
 |  Streaming:      Redpanda v25.3.9 (Kafka-kompatibel)               |
 |  Spark:          Clickstream Sessionisierung (PySpark)              |
 |  Qualitaet:      SQL-Expectations + Great Expectations + dbt-Tests   |
-|  Data Versioning: DVC (Data Version Control)                        |
+|  Sample-Daten:    Direkt versionierte YAML-/JSON-/JSONL-Fixtures    |
 |  Pipeline Def:   Bruin (Asset-basierte Pipeline-Definitionen)       |
 |  CI/CD:          GitHub Actions (lint, pytest, dbt build)           |
 |  IaC:            Terraform (Google Provider 5.6.0)                  |
@@ -239,7 +239,7 @@ Eine ergaenzende Architekturuebersicht liegt in [docs/architecture.md](docs/arch
 | Cloud Warehouse | BigQuery | (Zielarchitektur) |
 | Cloud Storage | GCS | (Zielarchitektur) |
 | Data Quality | Great Expectations | >=1.15 |
-| Data Versioning | DVC | >=3.67 |
+| Sample-Daten | Direkt im Git-Repo versioniert | kleine Fixtures |
 | Pipeline Definitions | Bruin | latest |
 | REST API | FastAPI + Uvicorn | >=0.115 / >=0.34 |
 | Frontend | Streamlit + Plotly | >=1.38 / >=5.24 |
@@ -269,10 +269,10 @@ Eine ergaenzende Architekturuebersicht liegt in [docs/architecture.md](docs/arch
 │   ├── dev.yaml                     # Lokale Overrides (Kafka, Geo, etc.)
 │   └── prod.yaml                    # Cloud-Platzhalter
 ├── .bruin.yml                       # Bruin Pipeline-Konfiguration
-├── .dvc/                            # DVC Data Version Control Konfiguration
-├── data/sample/                     # DVC-versionierte Beispiel- und Replay-Daten
-│   ├─��� batch/                       # Olist-Manifest, Open Food Facts Sample (.dvc tracked)
-│   └── streaming/                   # Retailrocket JSONL (.dvc tracked)
+├── .dvc/                            # Optionale DVC-Konfiguration fuer spaetere groessere Artefakte
+├── data/sample/                     # Direkt versionierte Beispiel- und Replay-Daten
+│   ├── batch/                       # Olist-Manifest, Open Food Facts Sample
+│   └── streaming/                   # Retailrocket JSONL
 ├── docs/                            # Architektur, ADRs, Runbooks
 ├── infra/terraform/gcp/             # GCP-Grundgeruest (Buckets, Datasets, IAM, Cloud Run)
 ├── kafka/                           # Topic-Katalog und create_topics.sh
@@ -1479,12 +1479,11 @@ docker compose down
 - Python-Runner mit PostgreSQL-Execution und JSON-Report
 - Graceful Skip wenn PostgreSQL nicht erreichbar oder Python >=3.14 (GX-Einschraenkung)
 
-### Data Versioning
+### Sample-Daten
 
-- **DVC (Data Version Control)** fuer Seed- und Sample-Daten
-- 3 DVC-tracked Dateien: `olist_manifest.yaml`, `open_food_facts_products_sample.json`, `retailrocket_events.jsonl`
-- Lokaler DVC-Remote unter `storage/dvc-cache/`
-- Reproduzierbare Datenstande mit `dvc pull` / `dvc push`
+- 3 kleine Beispiel-Dateien sind direkt im Repo versioniert: `olist_manifest.yaml`, `open_food_facts_products_sample.json`, `retailrocket_events.jsonl`
+- kein zusaetzlicher `dvc pull` ist fuer lokale Entwicklung oder CI notwendig
+- die Dateien sind bewusst klein gehalten, damit Fallbacks und Replay-Pfade nach einem frischen Clone sofort funktionieren
 
 ### Bruin Pipeline
 
@@ -1501,7 +1500,7 @@ docker compose down
 
 ### Engineering-Workflow
 
-- 27 pytest-Tests (Unit + Integration)
+- 32 pytest-Tests (Unit + Integration)
 - 5 GitHub-Actions-Workflows (lint, tests, dbt-checks, integration, deploy-gcp)
 - pre-commit-Konfiguration
 - Docker-Build-Smoke-Test in der Integrationspipeline
@@ -1954,27 +1953,16 @@ make run-quality
 - `pytest` -- 32/32 gruen
 - `make run-warehouse` inklusive `dbt build` -- sauber
 - `make run-quality` mit sauberem Skip-Verhalten ohne erreichbares PostgreSQL
-- `dvc push` / `dvc pull` -- 3 Dateien versioniert
+- kleine Sample-Dateien direkt im Repo versioniert und in CI verfuegbar
 
 ---
 
-## Data Versioning mit DVC
+## Kleine Sample-Daten im Repo
 
-Seed- und Sample-Daten werden mit [DVC](https://dvc.org/) versioniert:
+Die lokalen Seed- und Replay-Samples sind bewusst direkt im Git-Repo versioniert. Dadurch funktionieren
+CI, lokale Fallbacks und Demo-Laeufe ohne zusaetzliche Daten-Downloads.
 
-```bash
-# Daten herunterladen (nach frischem git clone)
-dvc pull
-
-# Datenaenderungen tracken
-dvc add data/sample/batch/olist_manifest.yaml
-dvc push
-
-# DVC-Status pruefen
-dvc status
-```
-
-**Versionierte Dateien:**
+**Direkt versionierte Dateien:**
 
 | Datei | Zweck |
 |---|---|
@@ -1982,7 +1970,8 @@ dvc status
 | `data/sample/batch/open_food_facts_products_sample.json` | Fallback-Produktdaten bei API-Stoerung |
 | `data/sample/streaming/retailrocket_events.jsonl` | 3 Sample-Events fuer Streaming-Replay |
 
-**Remote:** Lokaler DVC-Cache unter `storage/dvc-cache/`. Fuer Team-Zusammenarbeit kann ein S3/GCS-Remote konfiguriert werden.
+Die vorhandene `.dvc/`-Konfiguration kann spaeter fuer groessere Artefakte oder Landing-Zonen erweitert werden,
+ist fuer die aktuellen Beispiel-Files aber nicht erforderlich.
 
 ---
 
