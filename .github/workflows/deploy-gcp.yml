@@ -1,6 +1,7 @@
 # ============================================================================
 # Workflow: deploy-gcp
-# Zweck: Dashboard-Image bauen, in Artifact Registry pushen, auf Cloud Run deployen
+# Zweck: API- und Dashboard-Images bauen, in Artifact Registry pushen,
+#        auf Cloud Run deployen (API zuerst, dann Dashboard mit API_BASE_URL)
 # Trigger: Manuell (workflow_dispatch) mit Umgebungswahl (dev/prod)
 # Voraussetzung: GitHub Secrets muessen konfiguriert sein (siehe unten)
 # ============================================================================
@@ -24,7 +25,8 @@ env:
   GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}           # GCP-Projekt-ID aus Secrets
   GCP_REGION: ${{ secrets.GCP_REGION || 'us-central1' }}   # Region (Default: us-central1)
   ARTIFACT_REPO: omnichannel-platform                      # Name des Artifact Registry Repos
-  DASHBOARD_SERVICE: omnichannel-dashboard                 # Name des Cloud Run Services
+  API_SERVICE: omnichannel-api                             # Name des API Cloud Run Services
+  DASHBOARD_SERVICE: omnichannel-dashboard                 # Name des Dashboard Cloud Run Services
 
 jobs:
   build-and-deploy:
@@ -56,6 +58,16 @@ jobs:
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker "${{ env.GCP_REGION }}-docker.pkg.dev" --quiet
 
+      # --- API-Image bauen und pushen ---
+      # FastAPI REST-API als Backend fuer das Dashboard
+      - name: Build and push API image
+        run: |
+          IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/api:${{ github.sha }}"
+          IMAGE_LATEST="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/api:latest"
+          docker build --target api -t "$IMAGE" -t "$IMAGE_LATEST" .
+          docker push "$IMAGE"
+          docker push "$IMAGE_LATEST"
+
       # --- Dashboard-Image bauen und pushen ---
       # Zwei Tags: Commit-SHA (fuer Traceability) und latest
       - name: Build and push dashboard image
@@ -66,10 +78,36 @@ jobs:
           docker push "$IMAGE"
           docker push "$IMAGE_LATEST"
 
-      # --- Cloud Run Deployment ---
-      # Konfiguriert Umgebungsvariablen fuer PostgreSQL-Verbindung
+      # --- API auf Cloud Run deployen ---
+      # Muss vor dem Dashboard deployt werden, damit die API-URL bekannt ist
       # Benoetigt Secrets: POSTGRES_HOST, POSTGRES_USER, POSTGRES_PASSWORD
-      - name: Deploy to Cloud Run
+      - name: Deploy API to Cloud Run
+        run: |
+          IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/api:${{ github.sha }}"
+          gcloud run deploy "${{ env.API_SERVICE }}" \
+            --image "$IMAGE" \
+            --region "${{ env.GCP_REGION }}" \
+            --platform managed \
+            --port 8000 \
+            --allow-unauthenticated \
+            --set-env-vars "POSTGRES_HOST=${{ secrets.POSTGRES_HOST }},POSTGRES_PORT=5432,POSTGRES_DB=commerce_platform,POSTGRES_USER=${{ secrets.POSTGRES_USER }},POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" \
+            --min-instances 0 \
+            --max-instances 2 \
+            --memory 512Mi \
+            --cpu 1
+
+      # --- API-URL auslesen fuer Dashboard-Konfiguration ---
+      - name: Get API service URL
+        id: api-url
+        run: |
+          API_URL=$(gcloud run services describe "${{ env.API_SERVICE }}" \
+            --region "${{ env.GCP_REGION }}" \
+            --format "value(status.url)")
+          echo "api_url=$API_URL" >> "$GITHUB_OUTPUT"
+
+      # --- Dashboard auf Cloud Run deployen ---
+      # Verbindet sich ueber API_BASE_URL mit der API (kein direkter DB-Zugriff noetig)
+      - name: Deploy Dashboard to Cloud Run
         run: |
           IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/dashboard:${{ github.sha }}"
           gcloud run deploy "${{ env.DASHBOARD_SERVICE }}" \
@@ -78,15 +116,21 @@ jobs:
             --platform managed \
             --port 8080 \
             --allow-unauthenticated \
-            --set-env-vars "POSTGRES_HOST=${{ secrets.POSTGRES_HOST }},POSTGRES_PORT=5432,POSTGRES_DB=commerce_platform,POSTGRES_USER=${{ secrets.POSTGRES_USER }},POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }},DASHBOARD_WAREHOUSE_SCHEMA=staging,DASHBOARD_RAW_SCHEMA=raw" \
+            --set-env-vars "API_BASE_URL=${{ steps.api-url.outputs.api_url }},POSTGRES_HOST=${{ secrets.POSTGRES_HOST }},POSTGRES_PORT=5432,POSTGRES_DB=commerce_platform,POSTGRES_USER=${{ secrets.POSTGRES_USER }},POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }},DASHBOARD_WAREHOUSE_SCHEMA=staging,DASHBOARD_RAW_SCHEMA=raw" \
             --min-instances 0 \
             --max-instances 2 \
             --memory 512Mi \
             --cpu 1
 
-      # --- Service-URL ausgeben ---
-      - name: Print service URL
+      # --- Service-URLs ausgeben ---
+      - name: Print service URLs
         run: |
+          echo "=== API ==="
+          gcloud run services describe "${{ env.API_SERVICE }}" \
+            --region "${{ env.GCP_REGION }}" \
+            --format "value(status.url)"
+          echo ""
+          echo "=== Dashboard ==="
           gcloud run services describe "${{ env.DASHBOARD_SERVICE }}" \
             --region "${{ env.GCP_REGION }}" \
             --format "value(status.url)"

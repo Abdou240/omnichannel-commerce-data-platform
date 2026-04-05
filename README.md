@@ -1218,7 +1218,7 @@ cd ../../..
 - 2 GCS Buckets (Raw + Processed) mit Lifecycle-Rules
 - 3 BigQuery Datasets (raw, staging, marts)
 - 1 Artifact Registry Repository
-- 1 optionaler Cloud Run Service (wenn `dashboard_container_image` gesetzt ist)
+- 2 Cloud Run Services (API + Dashboard, deployed via `deploy-gcp.yml`)
 - IAM Bindings fuer BigQuery, Storage und Artifact Registry
 
 ### Test 9: FastAPI lokal
@@ -1493,8 +1493,8 @@ docker compose down
 
 - Terraform provisioniert automatisch benoetigte GCP APIs (Artifact Registry, BigQuery, Cloud Build, Cloud Run, Storage)
 - Artifact Registry Repository fuer Container-Images
-- Optionaler Cloud Run Service mit konfigurierbaren Env-Vars, Scaling und IAM (public/private)
-- `make deploy-dashboard-gcp` als One-Command-Deploy: Image bauen, pushen, Terraform-Apply
+- 2 Cloud Run Services (API + Dashboard) mit konfigurierbaren Env-Vars, Scaling und IAM
+- `deploy-gcp.yml` Workflow: API zuerst, dann Dashboard mit `API_BASE_URL` auf API-Service-URL
 - `.env.example` mit allen konfigurierbaren Umgebungsvariablen (Datenbanken, APIs, Cloud, Dashboard)
 - `terraform.tfvars.example` als Vorlage fuer GCP-Konfiguration
 
@@ -1740,7 +1740,7 @@ Echtzeit in der Sidebar angezeigt.
 | Lokal (Python, API-Modus) | `API_BASE_URL=http://localhost:8000 make run-dashboard` | `http://localhost:8501` |
 | Lokal (Python, DB-Modus) | `make run-dashboard` | `http://localhost:8501` |
 | Docker Compose | `docker compose up -d dashboard` | `http://localhost:8501` |
-| GCP Cloud Run | `make deploy-dashboard-gcp` | Cloud-Run-URL (Terraform-Output) |
+| GCP Cloud Run | `deploy-gcp.yml` Workflow (API + Dashboard) | Cloud-Run-URL (Workflow-Output) |
 
 Dashboard-Seiten im Detail:
 
@@ -1770,7 +1770,7 @@ Alle Filter wirken gleichzeitig -- die gefilterte Trefferanzahl wird in Echtzeit
 - 2 GCS-Buckets (Raw, Processed) mit Versioning und 30-Tage-Lifecycle
 - 3 BigQuery-Datasets: `commerce_raw`, `commerce_staging`, `commerce_marts`
 - 1 Artifact Registry Repository fuer Container-Images
-- 1 optionaler Cloud Run Service fuer das Streamlit-Dashboard (wird nur erstellt wenn `dashboard_container_image` gesetzt ist)
+- 2 Cloud Run Services: API (FastAPI) + Dashboard (Streamlit), deployed via `deploy-gcp.yml` Workflow
 - Location: `US` (kompatibel mit Public Datasets)
 
 ### GCP Cloud-Deployment Schritt fuer Schritt
@@ -1821,7 +1821,7 @@ Die Verbindungsparameter werden ueber `dashboard_env_vars` in `terraform.tfvars`
 | [tests.yml](.github/workflows/tests.yml) | push main + PRs | `pytest` (inkl. API-Tests) |
 | [dbt-checks.yml](.github/workflows/dbt-checks.yml) | push main + PRs | `dbt parse` + `dbt build` (DuckDB CI-Profil) |
 | [integration.yml](.github/workflows/integration.yml) | push main + PRs | PostgreSQL-Service, Batch/Streaming/Quality/dbt-End-to-End und Docker-Builds |
-| [deploy-gcp.yml](.github/workflows/deploy-gcp.yml) | workflow_dispatch (manuell) | Dashboard-Image bauen, nach Artifact Registry pushen und auf Cloud Run deployen |
+| [deploy-gcp.yml](.github/workflows/deploy-gcp.yml) | workflow_dispatch (manuell) | API + Dashboard Images bauen, nach Artifact Registry pushen und auf Cloud Run deployen |
 
 Alle Workflows nutzen Python 3.11 und laufen auf `ubuntu-latest`.
 
@@ -1858,14 +1858,16 @@ den kompletten Pipeline-Pfad:
 8. Quality-Checks (`--non-strict`)
 9. dbt-Build gegen echtes PostgreSQL (mit temporaerem Profil)
 10. Verifizierung: `staging.fct_commerce_orders` hat Daten
-11. Docker-Image-Builds (Pipeline + Dashboard) als Smoke-Test
+11. Docker-Image-Builds (Pipeline + API + Dashboard) als Smoke-Test
 
 #### deploy-gcp.yml
 
-Manuell ausloesbar ueber `workflow_dispatch` mit Umgebungswahl (`dev` / `prod`). Baut das Dashboard-
-Image, pusht es in die Artifact Registry und deployed es auf Cloud Run. Benoetigt folgende
-GitHub-Secrets: `GCP_PROJECT_ID`, `GCP_REGION`, `GCP_SA_KEY`, `POSTGRES_HOST`, `POSTGRES_USER`,
-`POSTGRES_PASSWORD`. Das Image wird mit dem Commit-SHA und `latest` getaggt.
+Manuell ausloesbar ueber `workflow_dispatch` mit Umgebungswahl (`dev` / `prod`). Baut sowohl das
+API-Image als auch das Dashboard-Image, pusht beide in die Artifact Registry und deployed sie
+auf zwei separate Cloud Run Services. Die API wird zuerst deployed, danach das Dashboard mit
+`API_BASE_URL` auf die API-Service-URL gesetzt (API-Modus). Benoetigt folgende GitHub-Secrets:
+`GCP_PROJECT_ID`, `GCP_REGION`, `GCP_SA_KEY`, `POSTGRES_HOST`, `POSTGRES_USER`, `POSTGRES_PASSWORD`.
+Beide Images werden mit dem Commit-SHA und `latest` getaggt.
 
 ### Lokale CI-Simulation
 
@@ -1913,7 +1915,7 @@ make run-quality
 - MongoDB wird als Raw-Store vorbereitet, aber noch nicht mit langfristiger Retention-Strategie
 - BigQuery ist architektonisch vorbereitet, aber nicht komplett durchdeployt
 - Kestra startet reale Entry-Points, aber noch ohne dediziertes Runtime-Image
-- Cloud Run ist vorbereitet, aber noch ohne produktive Secret-Injektion und ohne finalen Datenbank-Zielpfad
+- Cloud Run deployed API + Dashboard via GitHub Actions, aber noch ohne produktive Secret-Injektion (GCP Secret Manager)
 
 ---
 
