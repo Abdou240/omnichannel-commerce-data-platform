@@ -43,8 +43,7 @@ def run(strict: bool = True) -> None:
         )
     except ImportError:
         LOGGER.warning(
-            "great_expectations is not installed (requires Python <3.14). "
-            "Skipping GX validation."
+            "great_expectations is not installed (requires Python <3.14). Skipping GX validation."
         )
         return
 
@@ -66,8 +65,14 @@ def run(strict: bool = True) -> None:
             ExpectColumnDistinctValuesToBeInSet(
                 column="order_status",
                 value_set=[
-                    "delivered", "shipped", "processing", "invoiced",
-                    "approved", "created", "canceled", "unavailable",
+                    "delivered",
+                    "shipped",
+                    "processing",
+                    "invoiced",
+                    "approved",
+                    "created",
+                    "canceled",
+                    "unavailable",
                 ],
             ),
         ],
@@ -135,21 +140,25 @@ def run(strict: bool = True) -> None:
                 else:
                     total_failed += 1
                 LOGGER.info("  %s: %s -> %s", full_table, exp_type, status)
-                all_results.append({
-                    "table": full_table,
-                    "expectation": exp_type,
-                    "status": status,
-                })
+                all_results.append(
+                    {
+                        "table": full_table,
+                        "expectation": exp_type,
+                        "status": status,
+                    }
+                )
 
         except Exception as exc:
             LOGGER.warning("  Skipped %s: %s", full_table, exc)
             total_skipped += len(expectations)
-            all_results.append({
-                "table": full_table,
-                "expectation": "all",
-                "status": "skipped",
-                "error": str(exc),
-            })
+            all_results.append(
+                {
+                    "table": full_table,
+                    "expectation": "all",
+                    "status": "skipped",
+                    "error": str(exc),
+                }
+            )
 
     # ── Write report ─────────────────────────────────────────────────────
     report_dir = ensure_directory(repo_root() / "storage" / "checkpoints" / "great_expectations")
@@ -166,7 +175,10 @@ def run(strict: bool = True) -> None:
     report_path.write_text(json.dumps(report, indent=2, default=str), encoding="utf-8")
     LOGGER.info(
         "GX validation complete: %d passed, %d failed, %d skipped -> %s",
-        total_passed, total_failed, total_skipped, report_path,
+        total_passed,
+        total_failed,
+        total_skipped,
+        report_path,
     )
 
     if strict and total_failed > 0:

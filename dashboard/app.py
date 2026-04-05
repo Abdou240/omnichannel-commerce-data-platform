@@ -82,14 +82,14 @@ RAW_SCHEMA = raw_schema()
 
 # ── Consistent color palette (dark-theme friendly) ───────────────────
 COLORS = {
-    "primary": "#38bdf8",     # Sky blue
-    "secondary": "#818cf8",   # Indigo
-    "accent": "#c084fc",      # Purple
-    "success": "#34d399",     # Emerald
-    "warning": "#fbbf24",     # Amber
-    "danger": "#f87171",      # Red
-    "teal": "#2dd4bf",        # Teal
-    "orange": "#fb923c",      # Orange
+    "primary": "#38bdf8",  # Sky blue
+    "secondary": "#818cf8",  # Indigo
+    "accent": "#c084fc",  # Purple
+    "success": "#34d399",  # Emerald
+    "warning": "#fbbf24",  # Amber
+    "danger": "#f87171",  # Red
+    "teal": "#2dd4bf",  # Teal
+    "orange": "#fb923c",  # Orange
 }
 PALETTE = ["#38bdf8", "#818cf8", "#c084fc", "#34d399", "#fbbf24", "#fb923c", "#2dd4bf", "#f87171"]
 PLOTLY_TEMPLATE = "plotly_dark"
@@ -417,15 +417,23 @@ def main() -> None:
 
         st.plotly_chart(
             px.bar(
-                grouped, x="period", y="order_count", title="Bestellungen pro Zeitraum",
-                color_discrete_sequence=[COLORS["primary"]], template=PLOTLY_TEMPLATE,
+                grouped,
+                x="period",
+                y="order_count",
+                title="Bestellungen pro Zeitraum",
+                color_discrete_sequence=[COLORS["primary"]],
+                template=PLOTLY_TEMPLATE,
             ),
             use_container_width=True,
         )
         st.plotly_chart(
             px.area(
-                grouped, x="period", y="revenue_brl", title="Umsatzentwicklung (BRL)",
-                color_discrete_sequence=[COLORS["success"]], template=PLOTLY_TEMPLATE,
+                grouped,
+                x="period",
+                y="revenue_brl",
+                title="Umsatzentwicklung (BRL)",
+                color_discrete_sequence=[COLORS["success"]],
+                template=PLOTLY_TEMPLATE,
             ),
             use_container_width=True,
         )
@@ -628,7 +636,8 @@ def main() -> None:
             )
         )
         funnel_fig.update_layout(
-            template=PLOTLY_TEMPLATE, title="Conversion Funnel",
+            template=PLOTLY_TEMPLATE,
+            title="Conversion Funnel",
         )
         col2.plotly_chart(funnel_fig, use_container_width=True)
 
