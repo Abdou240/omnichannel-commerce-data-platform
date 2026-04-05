@@ -13,10 +13,11 @@ API_IMAGE ?= $(GCP_REGION)-docker.pkg.dev/$(GCP_PROJECT_ID)/$(ARTIFACT_REPO)/api
 DASHBOARD_PORT ?= 8501
 
 .PHONY: install install-dev install-local lint test pre-commit up down logs tree \
-	run-batch run-streaming run-warehouse-plan run-warehouse run-quality run-serving \
-	run-dashboard run-api dbt-build-ci kestra-info kafka-topics spark-sessionize \
-	docker-build-pipeline docker-build-dashboard docker-build-api terraform-init-gcp \
-	terraform-plan-gcp terraform-apply-gcp deploy-dashboard-gcp
+	run-batch run-streaming run-warehouse-plan run-warehouse run-quality run-gx \
+	run-quality-all run-serving run-dashboard run-api dbt-build-ci kestra-info \
+	kafka-topics spark-sessionize docker-build-pipeline docker-build-dashboard \
+	docker-build-api terraform-init-gcp terraform-plan-gcp terraform-apply-gcp \
+	deploy-dashboard-gcp
 
 install:
 	$(PYTHON) -m pip install --upgrade pip
@@ -70,6 +71,11 @@ run-warehouse: run-warehouse-plan dbt-build-ci
 
 run-quality:
 	$(PYTHON) -m omnichannel_platform.quality.rules_catalog
+
+run-gx:
+	$(PYTHON) -m omnichannel_platform.quality.gx_validation
+
+run-quality-all: run-quality run-gx
 
 run-serving:
 	@echo "TODO: implement serving-layer sync entry point"

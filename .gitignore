@@ -22,6 +22,9 @@ build/
 
 # Local outputs
 storage/*
+
+# DVC cache
+/storage/dvc-cache/
 logs/
 
 # DuckDB artifacts

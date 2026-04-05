@@ -47,6 +47,7 @@ nosql = [
   "pymongo>=4.8,<5.0",
 ]
 quality = [
+  "great_expectations>=1.15,<2.0; python_version<'3.14'",
   "psycopg[binary]>=3.2,<4.0",
   "sqlalchemy>=2.0.44",
 ]

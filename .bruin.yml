@@ -1,0 +1,17 @@
+# ============================================================================
+# Bruin Project Configuration
+# Zweck: Definiert die Pipeline-Assets und deren Abhaengigkeiten
+# Docs: https://bruin-data.github.io/bruin/
+# ============================================================================
+name: omnichannel_commerce
+
+environments:
+  default:
+    connections:
+      postgres:
+        - name: commerce_platform
+          host: localhost
+          port: 5432
+          database: commerce_platform
+          username: commerce
+          password: commerce

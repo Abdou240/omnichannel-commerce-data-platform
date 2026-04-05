@@ -1,0 +1,12 @@
+# ============================================================================
+# Bruin Pipeline: daily_commerce
+# Zweck: Definiert den taeglichen Pipeline-Lauf mit allen Schritten
+# Schedule: Taeglich um 06:00 UTC (analog zu Kestra-Flow)
+# ============================================================================
+name: daily_commerce
+schedule: "daily"
+
+start_date: "2024-01-01"
+
+default_connections:
+  postgres: commerce_platform

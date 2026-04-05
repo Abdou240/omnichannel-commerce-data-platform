@@ -37,22 +37,41 @@ st.markdown(
     """
     <style>
     .stApp {
-        background:
-            radial-gradient(circle at top right, rgba(241, 196, 15, 0.08), transparent 32%),
-            linear-gradient(180deg, #f6f4ef 0%, #ffffff 30%, #f9fafb 100%);
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+        color: #e2e8f0;
     }
+    [data-testid="stSidebar"] {
+        background: #1e293b;
+        border-right: 1px solid #334155;
+    }
+    [data-testid="stSidebar"] * { color: #cbd5e1 !important; }
     .block-container {
         padding-top: 1.8rem;
         padding-bottom: 2rem;
     }
     .dashboard-hero {
-        padding: 1.2rem 1.4rem;
-        border: 1px solid rgba(0, 0, 0, 0.08);
-        border-radius: 18px;
-        background: rgba(255, 255, 255, 0.82);
-        backdrop-filter: blur(8px);
-        margin-bottom: 1rem;
+        padding: 1.5rem 1.8rem;
+        border: 1px solid #334155;
+        border-radius: 16px;
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        margin-bottom: 1.5rem;
     }
+    .dashboard-hero h1 {
+        background: linear-gradient(90deg, #38bdf8, #818cf8, #c084fc);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-size: 2rem;
+        margin-bottom: 0.3rem;
+    }
+    .dashboard-hero p { color: #94a3b8; font-size: 0.95rem; }
+    [data-testid="stMetric"] {
+        background: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 12px;
+        padding: 0.8rem 1rem;
+    }
+    [data-testid="stMetricLabel"] { color: #94a3b8 !important; }
+    [data-testid="stMetricValue"] { color: #f1f5f9 !important; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -60,6 +79,20 @@ st.markdown(
 
 WAREHOUSE_SCHEMA = warehouse_schema()
 RAW_SCHEMA = raw_schema()
+
+# ── Consistent color palette (dark-theme friendly) ───────────────────
+COLORS = {
+    "primary": "#38bdf8",     # Sky blue
+    "secondary": "#818cf8",   # Indigo
+    "accent": "#c084fc",      # Purple
+    "success": "#34d399",     # Emerald
+    "warning": "#fbbf24",     # Amber
+    "danger": "#f87171",      # Red
+    "teal": "#2dd4bf",        # Teal
+    "orange": "#fb923c",      # Orange
+}
+PALETTE = ["#38bdf8", "#818cf8", "#c084fc", "#34d399", "#fbbf24", "#fb923c", "#2dd4bf", "#f87171"]
+PLOTLY_TEMPLATE = "plotly_dark"
 
 
 @st.cache_resource
@@ -343,7 +376,10 @@ def main() -> None:
                 status_counts,
                 names="Status",
                 values="Anzahl",
-                color_discrete_sequence=px.colors.qualitative.Set2,
+                color_discrete_sequence=PALETTE,
+                template=PLOTLY_TEMPLATE,
+                hole=0.4,
+                title="Bestellstatus-Verteilung",
             ),
             use_container_width=True,
         )
@@ -353,7 +389,9 @@ def main() -> None:
                 x="Zahlungsart",
                 y="Anzahl",
                 color="Zahlungsart",
-                color_discrete_sequence=px.colors.qualitative.Pastel,
+                color_discrete_sequence=PALETTE,
+                template=PLOTLY_TEMPLATE,
+                title="Zahlungsarten",
             ),
             use_container_width=True,
         )
@@ -378,11 +416,17 @@ def main() -> None:
         )
 
         st.plotly_chart(
-            px.bar(grouped, x="period", y="order_count", title="Bestellungen pro Zeitraum"),
+            px.bar(
+                grouped, x="period", y="order_count", title="Bestellungen pro Zeitraum",
+                color_discrete_sequence=[COLORS["primary"]], template=PLOTLY_TEMPLATE,
+            ),
             use_container_width=True,
         )
         st.plotly_chart(
-            px.area(grouped, x="period", y="revenue_brl", title="Umsatzentwicklung (BRL)"),
+            px.area(
+                grouped, x="period", y="revenue_brl", title="Umsatzentwicklung (BRL)",
+                color_discrete_sequence=[COLORS["success"]], template=PLOTLY_TEMPLATE,
+            ),
             use_container_width=True,
         )
 
@@ -398,6 +442,8 @@ def main() -> None:
                 y="payment_value_brl",
                 color="product_category_name",
                 title="Umsatz nach Kategorie",
+                color_discrete_sequence=PALETTE,
+                template=PLOTLY_TEMPLATE,
             ),
             use_container_width=True,
         )
@@ -428,7 +474,8 @@ def main() -> None:
                 y="product_category_name",
                 orientation="h",
                 title="Top Kategorien nach Umsatz",
-                color_discrete_sequence=["#b5554f"],
+                color_discrete_sequence=[COLORS["accent"]],
+                template=PLOTLY_TEMPLATE,
             ),
             use_container_width=True,
         )
@@ -439,7 +486,8 @@ def main() -> None:
                 y="customer_state",
                 orientation="h",
                 title="Top Bundesstaaten nach Bestellungen",
-                color_discrete_sequence=["#26547c"],
+                color_discrete_sequence=[COLORS["primary"]],
+                template=PLOTLY_TEMPLATE,
             ),
             use_container_width=True,
         )
@@ -455,8 +503,9 @@ def main() -> None:
             px.imshow(
                 heatmap,
                 aspect="auto",
-                color_continuous_scale="Viridis",
+                color_continuous_scale="Plasma",
                 title="Umsatz-Heatmap: Kategorie x Bundesstaat",
+                template=PLOTLY_TEMPLATE,
             ),
             use_container_width=True,
         )
@@ -481,7 +530,9 @@ def main() -> None:
                     names="Quelle",
                     values="Anzahl",
                     title="Produkte nach Quelle",
-                    color_discrete_sequence=px.colors.qualitative.Set3,
+                    color_discrete_sequence=PALETTE,
+                    template=PLOTLY_TEMPLATE,
+                    hole=0.4,
                 ),
                 use_container_width=True,
             )
@@ -503,7 +554,8 @@ def main() -> None:
                         y="Kategorie",
                         orientation="h",
                         title="Top 15 Produktkategorien",
-                        color_discrete_sequence=["#2a9d8f"],
+                        color_discrete_sequence=[COLORS["teal"]],
+                        template=PLOTLY_TEMPLATE,
                     ),
                     use_container_width=True,
                 )
@@ -520,7 +572,8 @@ def main() -> None:
                             y="Anzahl",
                             title="Open Food Facts Ecoscore-Verteilung",
                             color="Ecoscore",
-                            color_discrete_sequence=px.colors.qualitative.Safe,
+                            color_discrete_sequence=PALETTE,
+                            template=PLOTLY_TEMPLATE,
                         ),
                         use_container_width=True,
                     )
@@ -560,20 +613,24 @@ def main() -> None:
                 x="Event-Typ",
                 y="Anzahl",
                 color="Event-Typ",
-                color_discrete_sequence=["#26547c", "#f4a259", "#2a9d8f"],
+                color_discrete_sequence=[COLORS["primary"], COLORS["warning"], COLORS["success"]],
+                template=PLOTLY_TEMPLATE,
+                title="Events nach Typ",
             ),
             use_container_width=True,
         )
-        col2.plotly_chart(
-            go.Figure(
-                go.Funnel(
-                    y=event_totals["Event-Typ"],
-                    x=event_totals["Anzahl"],
-                    textinfo="value+percent initial",
-                )
-            ),
-            use_container_width=True,
+        funnel_fig = go.Figure(
+            go.Funnel(
+                y=event_totals["Event-Typ"],
+                x=event_totals["Anzahl"],
+                textinfo="value+percent initial",
+                marker=dict(color=[COLORS["primary"], COLORS["warning"], COLORS["success"]]),
+            )
         )
+        funnel_fig.update_layout(
+            template=PLOTLY_TEMPLATE, title="Conversion Funnel",
+        )
+        col2.plotly_chart(funnel_fig, use_container_width=True)
 
         st.plotly_chart(
             px.histogram(
@@ -581,7 +638,8 @@ def main() -> None:
                 x="event_count",
                 nbins=20,
                 title="Verteilung der Events pro Session",
-                color_discrete_sequence=["#7b2cbf"],
+                color_discrete_sequence=[COLORS["secondary"]],
+                template=PLOTLY_TEMPLATE,
             ),
             use_container_width=True,
         )
@@ -599,6 +657,8 @@ def main() -> None:
                     y="avg_temperature_c",
                     color="city",
                     title="Temperaturverlauf",
+                    color_discrete_sequence=PALETTE,
+                    template=PLOTLY_TEMPLATE,
                 ),
                 use_container_width=True,
             )
@@ -609,6 +669,8 @@ def main() -> None:
                     y="precipitation_mm",
                     color="city",
                     title="Niederschlag",
+                    color_discrete_sequence=PALETTE,
+                    template=PLOTLY_TEMPLATE,
                 ),
                 use_container_width=True,
             )
@@ -621,6 +683,8 @@ def main() -> None:
                     y="fx_rate",
                     color="quote_currency",
                     title="EUR/USD und EUR/BRL Wechselkurse",
+                    color_discrete_sequence=[COLORS["warning"], COLORS["success"]],
+                    template=PLOTLY_TEMPLATE,
                 ),
                 use_container_width=True,
             )
@@ -635,8 +699,10 @@ def main() -> None:
                     x="avg_temperature_c",
                     y="payment_value_brl",
                     color="customer_state",
-                    opacity=0.55,
+                    opacity=0.6,
                     title="Temperatur vs. Bestellwert",
+                    color_discrete_sequence=PALETTE,
+                    template=PLOTLY_TEMPLATE,
                 ),
                 use_container_width=True,
             )
@@ -733,6 +799,9 @@ def main() -> None:
             | Document Store | MongoDB 7 |
             | Transformation | dbt |
             | Orchestrierung | Kestra v1.1 |
+            | Data Quality | Custom SQL + Great Expectations |
+            | Data Versioning | DVC |
+            | REST API | FastAPI |
             | Dashboard | Streamlit + Plotly |
             | Cloud Ziel | Cloud Run + BigQuery |
             """

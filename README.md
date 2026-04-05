@@ -209,10 +209,13 @@ Raw-Document-Store fuer JSON-Payloads und Replay-Artefakte.
 |  Orchestrierung: Kestra v1.1 (daily_platform_ingestion)             |
 |  Streaming:      Redpanda v25.3.9 (Kafka-kompatibel)               |
 |  Spark:          Clickstream Sessionisierung (PySpark)              |
-|  Qualitaet:      SQL-Expectations + dbt-Tests + Quality-Runner      |
+|  Qualitaet:      SQL-Expectations + Great Expectations + dbt-Tests   |
+|  Data Versioning: DVC (Data Version Control)                        |
+|  Pipeline Def:   Bruin (Asset-basierte Pipeline-Definitionen)       |
 |  CI/CD:          GitHub Actions (lint, pytest, dbt build)           |
 |  IaC:            Terraform (Google Provider 5.6.0)                  |
-|  Frontend:       Streamlit + Plotly                                 |
+|  Frontend:       Streamlit + Plotly (Dark Theme)                    |
+|  REST API:       FastAPI                                            |
 |  Deployment:     Docker Compose + Cloud Run                         |
 +---------------------------------------------------------------------+
 ```
@@ -235,9 +238,13 @@ Eine ergaenzende Architekturuebersicht liegt in [docs/architecture.md](docs/arch
 | IaC | Terraform (Google Provider) | 5.6.0 |
 | Cloud Warehouse | BigQuery | (Zielarchitektur) |
 | Cloud Storage | GCS | (Zielarchitektur) |
+| Data Quality | Great Expectations | >=1.15 |
+| Data Versioning | DVC | >=3.67 |
+| Pipeline Definitions | Bruin | latest |
+| REST API | FastAPI + Uvicorn | >=0.115 / >=0.34 |
 | Frontend | Streamlit + Plotly | >=1.38 / >=5.24 |
 | Container | Docker / Docker Compose | latest |
-| Cloud App Runtime | Cloud Run | (Zielarchitektur) |
+| Cloud App Runtime | Cloud Run | 2 Services (API + Dashboard) |
 | Python | Python | >=3.11 |
 | Build Tool | uv / pip | latest |
 | Linting | ruff | >=0.6 |
@@ -261,17 +268,20 @@ Eine ergaenzende Architekturuebersicht liegt in [docs/architecture.md](docs/arch
 │   ├── base.yaml                    # Alle Quellen, Warehouse, Orchestrierung
 │   ├── dev.yaml                     # Lokale Overrides (Kafka, Geo, etc.)
 │   └── prod.yaml                    # Cloud-Platzhalter
-├── data/sample/                     # Kleine lokale Beispiel- und Replay-Daten
-│   ├── batch/                       # Olist-Manifest, Open Food Facts Sample
-│   └── streaming/                   # Retailrocket JSONL (3 Events)
+├── .bruin.yml                       # Bruin Pipeline-Konfiguration
+├── .dvc/                            # DVC Data Version Control Konfiguration
+├── data/sample/                     # DVC-versionierte Beispiel- und Replay-Daten
+│   ├─��� batch/                       # Olist-Manifest, Open Food Facts Sample (.dvc tracked)
+│   └── streaming/                   # Retailrocket JSONL (.dvc tracked)
 ├── docs/                            # Architektur, ADRs, Runbooks
 ├── infra/terraform/gcp/             # GCP-Grundgeruest (Buckets, Datasets, IAM, Cloud Run)
 ├── kafka/                           # Topic-Katalog und create_topics.sh
 ├── nosql/mongodb/                   # init.js fuer Collections und Indexes
 ├── orchestration/kestra/flows/      # Kestra-Flow (daily_platform_ingestion)
+├── pipeline/                        # Bruin Asset-Definitionen (5 Pipeline-Schritte)
 ├── quality/
 │   ├── contracts/                   # 4 YAML-Vertraege
-│   └── expectations/                # 4 SQL-Checks (fx_rates, order_statuses, etc.)
+│   └── expectations/                # 5 SQL-Checks (fx_rates, order_statuses, etc.)
 ├── spark/jobs/                      # clickstream_sessionization.py
 ├── sql/postgres/init/               # Schema-Init + Raw-Tabellen-DDL
 ├── src/omnichannel_platform/
@@ -279,7 +289,7 @@ Eine ergaenzende Architekturuebersicht liegt in [docs/architecture.md](docs/arch
 │   ├── batch/                       # commerce_batch_ingestion, source_plans, orders_ingestion
 │   ├── common/                      # logging, settings, clients (Postgres/Mongo), io
 │   ├── dashboard/                   # testbare Dashboard-Logik (logic.py)
-│   ├── quality/                     # rules_catalog (SQL-Runner + Report)
+│   ├── quality/                     # rules_catalog + gx_validation (Great Expectations)
 │   ├── streaming/                   # clickstream_consumer (Replay + Kafka + Persist)
 │   └── warehouse/                   # layer_catalog
 ├── tests/
@@ -1411,6 +1421,8 @@ docker compose down
 | `make run-warehouse` | Layer-Planung + `dbt build` gegen DuckDB-CI-Profil | `make install-local` |
 | `make dbt-build-ci` | Nur `dbt build` gegen DuckDB (ohne Layer-Planung) | dbt installiert |
 | `make run-quality` | SQL-Expectations gegen PostgreSQL ausfuehren, JSON-Report schreiben | Optional: PostgreSQL |
+| `make run-gx` | Great Expectations Validierung (5 Tabellen, programmatisch) | PostgreSQL + Python <3.14 |
+| `make run-quality-all` | Beide Quality-Runner nacheinander (SQL + GX) | PostgreSQL |
 | `make run-dashboard` | Streamlit-Dashboard lokal starten auf Port 8501 | `make install-local` |
 | `make spark-sessionize` | PySpark-Sessionisierung: JSONL -> Parquet | PySpark + JVM |
 
@@ -1463,8 +1475,23 @@ docker compose down
 
 - 4 deklarative Qualitaetsvertraege (Olist, Retailrocket, Marts, Enrichments)
 - SQL-Expectations (FX-Raten positiv, Order-Statuses gueltig, Event-Types gueltig, Produkt-Codes nicht null)
+- **Great Expectations** Integration mit programmatischen Expectations fuer 5 Tabellen (not_null, unique, accepted_values, row_count)
 - Python-Runner mit PostgreSQL-Execution und JSON-Report
-- Graceful Skip wenn PostgreSQL nicht erreichbar
+- Graceful Skip wenn PostgreSQL nicht erreichbar oder Python >=3.14 (GX-Einschraenkung)
+
+### Data Versioning
+
+- **DVC (Data Version Control)** fuer Seed- und Sample-Daten
+- 3 DVC-tracked Dateien: `olist_manifest.yaml`, `open_food_facts_products_sample.json`, `retailrocket_events.jsonl`
+- Lokaler DVC-Remote unter `storage/dvc-cache/`
+- Reproduzierbare Datenstande mit `dvc pull` / `dvc push`
+
+### Bruin Pipeline
+
+- **Bruin** Asset-Definitionen in `pipeline/` mit deklarativen Column-Checks
+- 5 Pipeline-Assets: `ingest_olist`, `ingest_streaming`, `ingest_enrichments`, `transform_dbt`, `quality_checks`
+- DAG-Abhaengigkeiten zwischen Assets (z.B. `transform_dbt` haengt von allen Ingestion-Assets ab)
+- `.bruin.yml` Projektkonfiguration mit PostgreSQL-Verbindung
 
 ### Spark
 
@@ -1564,11 +1591,34 @@ Jedes Modell nutzt `raw_relation_exists()` fuer source-aware Fallbacks.
 | `assert_valid_retailrocket_event_types.sql` | Nur view/addtocart/transaction |
 | `reference_open_food_facts_products_not_null.sql` | product_code und product_name nicht leer |
 
+### Great Expectations (GX)
+
+Zusaetzlich zu den SQL-Expectations validiert Great Expectations 5 Tabellen programmatisch:
+
+| Tabelle | Expectations |
+|---|---|
+| `raw.olist_orders` | not_null(order_id), unique(order_id), not_null(timestamp), accepted_values(status) |
+| `raw.retailrocket_events` | not_null(event_id), not_null(visitor_id), accepted_values(event_type), row_count > 0 |
+| `raw.frankfurter_fx_rates` | not_null(rate_date), not_null(fx_rate), row_count > 0 |
+| `raw.open_meteo_weather` | not_null(weather_date), not_null(city), row_count > 0 |
+| `staging.fct_commerce_orders` | not_null(order_id), unique(order_id), not_null(customer_id), not_null(payment_value_brl), row_count > 0 |
+
+```bash
+make run-gx                   # GX-Validierung ausfuehren
+make run-quality-all          # Beide Runner (SQL + GX)
+```
+
+**Hinweis:** Great Expectations erfordert Python <3.14. In CI (Python 3.11) und Docker funktioniert es.
+Bei lokaler Python 3.14 wird GX automatisch uebersprungen.
+
 ### Report-Ausgabe
 
 ```bash
-# Nach make run-quality:
+# Custom SQL-Expectations:
 cat storage/checkpoints/quality/last_run.json
+
+# Great Expectations:
+cat storage/checkpoints/great_expectations/last_run.json
 ```
 
 ---
@@ -1901,9 +1951,55 @@ make run-quality
 ### Bereits erfolgreich geprueft
 
 - `ruff check .` -- sauber
-- `pytest` -- 27/27 gruen
+- `pytest` -- 32/32 gruen
 - `make run-warehouse` inklusive `dbt build` -- sauber
 - `make run-quality` mit sauberem Skip-Verhalten ohne erreichbares PostgreSQL
+- `dvc push` / `dvc pull` -- 3 Dateien versioniert
+
+---
+
+## Data Versioning mit DVC
+
+Seed- und Sample-Daten werden mit [DVC](https://dvc.org/) versioniert:
+
+```bash
+# Daten herunterladen (nach frischem git clone)
+dvc pull
+
+# Datenaenderungen tracken
+dvc add data/sample/batch/olist_manifest.yaml
+dvc push
+
+# DVC-Status pruefen
+dvc status
+```
+
+**Versionierte Dateien:**
+
+| Datei | Zweck |
+|---|---|
+| `data/sample/batch/olist_manifest.yaml` | Olist-Tabellenzuordnung fuer Seed-Generierung |
+| `data/sample/batch/open_food_facts_products_sample.json` | Fallback-Produktdaten bei API-Stoerung |
+| `data/sample/streaming/retailrocket_events.jsonl` | 3 Sample-Events fuer Streaming-Replay |
+
+**Remote:** Lokaler DVC-Cache unter `storage/dvc-cache/`. Fuer Team-Zusammenarbeit kann ein S3/GCS-Remote konfiguriert werden.
+
+---
+
+## Bruin Pipeline-Definitionen
+
+[Bruin](https://bruin-data.github.io/bruin/) definiert Pipeline-Assets deklarativ mit DAG-Abhaengigkeiten
+und Column-Level-Checks in `pipeline/`:
+
+| Asset | Abhaengigkeiten | Beschreibung |
+|---|---|---|
+| `ingest_olist.py` | `raw.schema_init` | Olist Seed-Daten laden (order_id unique, status domain) |
+| `ingest_streaming.py` | `raw.schema_init` | Retailrocket Replay (event_id, visitor_id, event_type checks) |
+| `ingest_enrichments.py` | `raw.schema_init` | API-Enrichments (FX positive, weather_date not_null) |
+| `transform_dbt.py` | Alle Ingestion-Assets | dbt-Build: raw -> staging -> marts |
+| `quality_checks.py` | `staging.fct_commerce_orders` | SQL-Expectations + Great Expectations |
+
+**Konfiguration:** `.bruin.yml` im Projektroot mit PostgreSQL-Verbindung.
 
 ---
 

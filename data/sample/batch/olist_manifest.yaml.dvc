@@ -1,0 +1,5 @@
+outs:
+- md5: 9881f4f737eb9361b0d478b3809eea7a
+  size: 1194
+  hash: md5
+  path: olist_manifest.yaml
