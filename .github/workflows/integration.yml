@@ -127,7 +127,7 @@ jobs:
       - name: Verify mart tables populated
         run: |
           PGPASSWORD=commerce psql -h localhost -U commerce -d commerce_platform -c "
-            SELECT count(*) as cnt FROM staging.fct_commerce_orders;
+            SELECT count(*) as cnt FROM marts.fct_commerce_orders;
           " | grep -qE "[1-9]"
 
       # --- Docker-Image-Builds als Smoke-Test ---

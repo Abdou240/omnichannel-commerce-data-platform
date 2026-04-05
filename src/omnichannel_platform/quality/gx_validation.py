@@ -95,7 +95,7 @@ def run(strict: bool = True) -> None:
             ExpectColumnValuesToNotBeNull(column="city"),
             ExpectTableRowCountToBeGreaterThan(value=0),
         ],
-        "staging.fct_commerce_orders": [
+        "marts.fct_commerce_orders": [
             ExpectColumnValuesToNotBeNull(column="order_id"),
             ExpectColumnValuesToBeUnique(column="order_id"),
             ExpectColumnValuesToNotBeNull(column="customer_id"),

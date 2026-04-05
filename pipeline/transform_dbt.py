@@ -1,5 +1,5 @@
 """/* @bruin
-name: staging.fct_commerce_orders
+name: marts.fct_commerce_orders
 type: python
 depends:
   - raw.olist_orders

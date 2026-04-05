@@ -1123,10 +1123,10 @@ dbt build --project-dir warehouse/dbt --target dev
 # Mart-Ergebnisse pruefen
 docker compose exec postgres psql -U commerce -d commerce_platform -c "
   SELECT count(*) as orders, avg(payment_value_brl) as avg_payment
-  FROM staging.fct_commerce_orders;
+  FROM marts.fct_commerce_orders;
 "
 docker compose exec postgres psql -U commerce -d commerce_platform -c "
-  SELECT * FROM staging.dim_products LIMIT 5;
+  SELECT * FROM marts.dim_products LIMIT 5;
 "
 ```
 
@@ -1372,9 +1372,9 @@ docker compose exec postgres psql -U commerce -d commerce_platform -c "
   UNION ALL SELECT 'raw.open_food_facts_products', count(*) FROM raw.open_food_facts_products
   UNION ALL SELECT 'raw.open_meteo_weather', count(*) FROM raw.open_meteo_weather
   UNION ALL SELECT 'raw.frankfurter_fx_rates', count(*) FROM raw.frankfurter_fx_rates
-  UNION ALL SELECT 'staging.fct_commerce_orders', count(*) FROM staging.fct_commerce_orders
+  UNION ALL SELECT 'marts.fct_commerce_orders', count(*) FROM marts.fct_commerce_orders
   UNION ALL SELECT 'staging.fct_retailrocket_sessions', count(*) FROM staging.fct_retailrocket_sessions
-  UNION ALL SELECT 'staging.dim_products', count(*) FROM staging.dim_products;
+  UNION ALL SELECT 'marts.dim_products', count(*) FROM marts.dim_products;
 "
 
 # 10. Dashboard pruefen
@@ -1600,7 +1600,7 @@ Zusaetzlich zu den SQL-Expectations validiert Great Expectations 5 Tabellen prog
 | `raw.retailrocket_events` | not_null(event_id), not_null(visitor_id), accepted_values(event_type), row_count > 0 |
 | `raw.frankfurter_fx_rates` | not_null(rate_date), not_null(fx_rate), row_count > 0 |
 | `raw.open_meteo_weather` | not_null(weather_date), not_null(city), row_count > 0 |
-| `staging.fct_commerce_orders` | not_null(order_id), unique(order_id), not_null(customer_id), not_null(payment_value_brl), row_count > 0 |
+| `marts.fct_commerce_orders` | not_null(order_id), unique(order_id), not_null(customer_id), not_null(payment_value_brl), row_count > 0 |
 
 ```bash
 make run-gx                   # GX-Validierung ausfuehren
@@ -1906,7 +1906,7 @@ den kompletten Pipeline-Pfad:
 7. Verifizierung: `raw.retailrocket_events` hat Daten
 8. Quality-Checks (`--non-strict`)
 9. dbt-Build gegen echtes PostgreSQL (mit temporaerem Profil)
-10. Verifizierung: `staging.fct_commerce_orders` hat Daten
+10. Verifizierung: `marts.fct_commerce_orders` hat Daten
 11. Docker-Image-Builds (Pipeline + API + Dashboard) als Smoke-Test
 
 #### deploy-gcp.yml
@@ -1986,7 +1986,7 @@ und Column-Level-Checks in `pipeline/`:
 | `ingest_streaming.py` | `raw.schema_init` | Retailrocket Replay (event_id, visitor_id, event_type checks) |
 | `ingest_enrichments.py` | `raw.schema_init` | API-Enrichments (FX positive, weather_date not_null) |
 | `transform_dbt.py` | Alle Ingestion-Assets | dbt-Build: raw -> staging -> marts |
-| `quality_checks.py` | `staging.fct_commerce_orders` | SQL-Expectations + Great Expectations |
+| `quality_checks.py` | `marts.fct_commerce_orders` | SQL-Expectations + Great Expectations |
 
 **Konfiguration:** `.bruin.yml` im Projektroot mit PostgreSQL-Verbindung.
 

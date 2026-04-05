@@ -2,7 +2,7 @@
 name: quality.validation
 type: python
 depends:
-  - staging.fct_commerce_orders
+  - marts.fct_commerce_orders
 description: Run data quality checks (custom SQL expectations + Great Expectations)
 @bruin */"""
 
