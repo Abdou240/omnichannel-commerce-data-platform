@@ -78,18 +78,6 @@ st.markdown(
     }
     .dashboard-hero p { color: #64748b; font-size: 0.9rem; margin: 0; }
 
-    /* ── Mode badge ──────────────────────────────────────────────────── */
-    .mode-badge {
-        display: inline-block;
-        padding: 0.25rem 0.75rem;
-        border-radius: 20px;
-        font-size: 0.75rem;
-        font-weight: 500;
-        margin-bottom: 1rem;
-    }
-    .mode-badge.api { background: rgba(56,189,248,0.15); color: #38bdf8; border: 1px solid rgba(56,189,248,0.3); }
-    .mode-badge.db { background: rgba(52,211,153,0.15); color: #34d399; border: 1px solid rgba(52,211,153,0.3); }
-
     /* ── KPI metric cards ────────────────────────────────────────────── */
     [data-testid="stMetric"] {
         background: linear-gradient(135deg, #1e293b, #0f172a) !important;
@@ -348,17 +336,6 @@ def main() -> None:
         """,
         unsafe_allow_html=True,
     )
-
-    if API_BASE_URL:
-        st.markdown(
-            f'<span class="mode-badge api">API-Modus via {API_BASE_URL}</span>',
-            unsafe_allow_html=True,
-        )
-    else:
-        st.markdown(
-            '<span class="mode-badge db">Direkter DB-Modus via PostgreSQL</span>',
-            unsafe_allow_html=True,
-        )
 
     try:
         dataframes = load_datasets()
