@@ -36,42 +36,104 @@ st.set_page_config(
 st.markdown(
     """
     <style>
+    /* ── Base dark theme ─────────────────────────────────────────────── */
     .stApp {
-        background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
-        color: #e2e8f0;
+        background: #0f172a !important;
+        color: #e2e8f0 !important;
     }
+    header[data-testid="stHeader"] {
+        background: #0f172a !important;
+    }
+
+    /* ── Sidebar ─────────────────────────────────────────────────────── */
     [data-testid="stSidebar"] {
-        background: #1e293b;
-        border-right: 1px solid #334155;
+        background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%) !important;
+        border-right: 1px solid #1e293b;
     }
-    [data-testid="stSidebar"] * { color: #cbd5e1 !important; }
+    [data-testid="stSidebar"] * { color: #94a3b8 !important; }
+    [data-testid="stSidebar"] .stRadio label[data-checked="true"] { color: #38bdf8 !important; }
+
+    /* ── Content container ───────────────────────────────────────────── */
     .block-container {
-        padding-top: 1.8rem;
+        padding-top: 1.5rem;
         padding-bottom: 2rem;
+        max-width: 1200px;
     }
+
+    /* ── Hero banner ─────────────────────────────────────────────────── */
     .dashboard-hero {
-        padding: 1.5rem 1.8rem;
-        border: 1px solid #334155;
+        padding: 2rem 2.2rem;
+        border: 1px solid #1e293b;
         border-radius: 16px;
         background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-        margin-bottom: 1.5rem;
+        margin-bottom: 0.5rem;
     }
     .dashboard-hero h1 {
         background: linear-gradient(90deg, #38bdf8, #818cf8, #c084fc);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        font-size: 2rem;
-        margin-bottom: 0.3rem;
+        font-size: 1.9rem;
+        font-weight: 700;
+        margin-bottom: 0.4rem;
     }
-    .dashboard-hero p { color: #94a3b8; font-size: 0.95rem; }
+    .dashboard-hero p { color: #64748b; font-size: 0.9rem; margin: 0; }
+
+    /* ── Mode badge ──────────────────────────────────────────────────── */
+    .mode-badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        margin-bottom: 1rem;
+    }
+    .mode-badge.api { background: rgba(56,189,248,0.15); color: #38bdf8; border: 1px solid rgba(56,189,248,0.3); }
+    .mode-badge.db { background: rgba(52,211,153,0.15); color: #34d399; border: 1px solid rgba(52,211,153,0.3); }
+
+    /* ── KPI metric cards ────────────────────────────────────────────── */
     [data-testid="stMetric"] {
-        background: #1e293b;
-        border: 1px solid #334155;
-        border-radius: 12px;
-        padding: 0.8rem 1rem;
+        background: linear-gradient(135deg, #1e293b, #0f172a) !important;
+        border: 1px solid #334155 !important;
+        border-radius: 12px !important;
+        padding: 1rem 1.2rem !important;
     }
-    [data-testid="stMetricLabel"] { color: #94a3b8 !important; }
-    [data-testid="stMetricValue"] { color: #f1f5f9 !important; }
+    [data-testid="stMetricLabel"] { color: #64748b !important; font-size: 0.8rem !important; }
+    [data-testid="stMetricValue"] { color: #f1f5f9 !important; font-size: 1.4rem !important; }
+
+    /* ── Insight cards (replace st.info) ──────────────────────────────── */
+    .insight-card {
+        background: linear-gradient(135deg, rgba(56,189,248,0.08), rgba(129,140,248,0.08));
+        border: 1px solid rgba(56,189,248,0.2);
+        border-left: 3px solid #38bdf8;
+        border-radius: 10px;
+        padding: 0.9rem 1.2rem;
+        color: #cbd5e1;
+        font-size: 0.88rem;
+        margin-bottom: 0.5rem;
+    }
+
+    /* ── Subheader styling ────────────────────────────────────────────── */
+    h2, h3, .stSubheader { color: #e2e8f0 !important; }
+
+    /* ── Global text ─────────────────────────────────────────────────── */
+    p, span, label, .stMarkdown { color: #cbd5e1 !important; }
+
+    /* ── Radio buttons ───────────────────────────────────────────────── */
+    .stRadio > div { gap: 0.5rem; }
+    .stRadio label {
+        background: #1e293b !important;
+        border: 1px solid #334155 !important;
+        border-radius: 8px !important;
+        padding: 0.35rem 0.9rem !important;
+        color: #94a3b8 !important;
+        font-size: 0.85rem !important;
+    }
+
+    /* ── Dataframe tables ────────────────────────────────────────────── */
+    [data-testid="stDataFrame"] { border-radius: 10px; overflow: hidden; }
+
+    /* ── Fix caption ─────────────────────────────────────────────────── */
+    .stCaption, [data-testid="stCaptionContainer"] { color: #475569 !important; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -93,6 +155,20 @@ COLORS = {
 }
 PALETTE = ["#38bdf8", "#818cf8", "#c084fc", "#34d399", "#fbbf24", "#fb923c", "#2dd4bf", "#f87171"]
 PLOTLY_TEMPLATE = "plotly_dark"
+PLOTLY_LAYOUT = dict(
+    paper_bgcolor="rgba(0,0,0,0)",
+    plot_bgcolor="rgba(15,23,42,0.6)",
+    font=dict(color="#94a3b8", size=12),
+    title_font=dict(color="#e2e8f0", size=15),
+    margin=dict(l=40, r=20, t=50, b=40),
+    legend=dict(font=dict(color="#94a3b8", size=11)),
+)
+
+
+def styled_chart(fig):
+    """Apply consistent dark styling to any Plotly figure."""
+    fig.update_layout(**PLOTLY_LAYOUT)
+    return fig
 
 
 @st.cache_resource
@@ -273,11 +349,16 @@ def main() -> None:
         unsafe_allow_html=True,
     )
 
-    mode_label = "API-Modus" if API_BASE_URL else "Direkter DB-Modus"
-    st.caption(
-        f"Datenzugriff: {mode_label}"
-        + (f" via `{API_BASE_URL}`" if API_BASE_URL else " via SQLAlchemy/PostgreSQL")
-    )
+    if API_BASE_URL:
+        st.markdown(
+            f'<span class="mode-badge api">API-Modus via {API_BASE_URL}</span>',
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            '<span class="mode-badge db">Direkter DB-Modus via PostgreSQL</span>',
+            unsafe_allow_html=True,
+        )
 
     try:
         dataframes = load_datasets()
@@ -359,11 +440,10 @@ def main() -> None:
         st.subheader("Commerce KPIs")
         render_kpi_metrics(filtered_orders)
 
-        insight_columns = st.columns(len(derive_commerce_insights(filtered_orders)))
-        for column, insight in zip(
-            insight_columns, derive_commerce_insights(filtered_orders), strict=False
-        ):
-            column.info(insight)
+        insights = derive_commerce_insights(filtered_orders)
+        insight_columns = st.columns(len(insights))
+        for column, insight in zip(insight_columns, insights, strict=False):
+            column.markdown(f'<div class="insight-card">{insight}</div>', unsafe_allow_html=True)
 
         status_counts = filtered_orders["order_status"].value_counts().reset_index()
         status_counts.columns = ["Status", "Anzahl"]
@@ -372,26 +452,30 @@ def main() -> None:
 
         col1, col2 = st.columns(2)
         col1.plotly_chart(
-            px.pie(
-                status_counts,
-                names="Status",
-                values="Anzahl",
-                color_discrete_sequence=PALETTE,
-                template=PLOTLY_TEMPLATE,
-                hole=0.4,
-                title="Bestellstatus-Verteilung",
+            styled_chart(
+                px.pie(
+                    status_counts,
+                    names="Status",
+                    values="Anzahl",
+                    color_discrete_sequence=PALETTE,
+                    template=PLOTLY_TEMPLATE,
+                    hole=0.4,
+                    title="Bestellstatus-Verteilung",
+                )
             ),
             use_container_width=True,
         )
         col2.plotly_chart(
-            px.bar(
-                payment_counts,
-                x="Zahlungsart",
-                y="Anzahl",
-                color="Zahlungsart",
-                color_discrete_sequence=PALETTE,
-                template=PLOTLY_TEMPLATE,
-                title="Zahlungsarten",
+            styled_chart(
+                px.bar(
+                    payment_counts,
+                    x="Zahlungsart",
+                    y="Anzahl",
+                    color="Zahlungsart",
+                    color_discrete_sequence=PALETTE,
+                    template=PLOTLY_TEMPLATE,
+                    title="Zahlungsarten",
+                )
             ),
             use_container_width=True,
         )
@@ -416,24 +500,28 @@ def main() -> None:
         )
 
         st.plotly_chart(
-            px.bar(
-                grouped,
-                x="period",
-                y="order_count",
-                title="Bestellungen pro Zeitraum",
-                color_discrete_sequence=[COLORS["primary"]],
-                template=PLOTLY_TEMPLATE,
+            styled_chart(
+                px.bar(
+                    grouped,
+                    x="period",
+                    y="order_count",
+                    title="Bestellungen pro Zeitraum",
+                    color_discrete_sequence=[COLORS["primary"]],
+                    template=PLOTLY_TEMPLATE,
+                )
             ),
             use_container_width=True,
         )
         st.plotly_chart(
-            px.area(
-                grouped,
-                x="period",
-                y="revenue_brl",
-                title="Umsatzentwicklung (BRL)",
-                color_discrete_sequence=[COLORS["success"]],
-                template=PLOTLY_TEMPLATE,
+            styled_chart(
+                px.area(
+                    grouped,
+                    x="period",
+                    y="revenue_brl",
+                    title="Umsatzentwicklung (BRL)",
+                    color_discrete_sequence=[COLORS["success"]],
+                    template=PLOTLY_TEMPLATE,
+                )
             ),
             use_container_width=True,
         )
@@ -444,14 +532,16 @@ def main() -> None:
             .reset_index()
         )
         st.plotly_chart(
-            px.area(
-                category_time,
-                x="period",
-                y="payment_value_brl",
-                color="product_category_name",
-                title="Umsatz nach Kategorie",
-                color_discrete_sequence=PALETTE,
-                template=PLOTLY_TEMPLATE,
+            styled_chart(
+                px.area(
+                    category_time,
+                    x="period",
+                    y="payment_value_brl",
+                    color="product_category_name",
+                    title="Umsatz nach Kategorie",
+                    color_discrete_sequence=PALETTE,
+                    template=PLOTLY_TEMPLATE,
+                )
             ),
             use_container_width=True,
         )
@@ -476,26 +566,30 @@ def main() -> None:
 
         col1, col2 = st.columns(2)
         col1.plotly_chart(
-            px.bar(
-                top_categories,
-                x="payment_value_brl",
-                y="product_category_name",
-                orientation="h",
-                title="Top Kategorien nach Umsatz",
-                color_discrete_sequence=[COLORS["accent"]],
-                template=PLOTLY_TEMPLATE,
+            styled_chart(
+                px.bar(
+                    top_categories,
+                    x="payment_value_brl",
+                    y="product_category_name",
+                    orientation="h",
+                    title="Top Kategorien nach Umsatz",
+                    color_discrete_sequence=[COLORS["accent"]],
+                    template=PLOTLY_TEMPLATE,
+                )
             ),
             use_container_width=True,
         )
         col2.plotly_chart(
-            px.bar(
-                top_states,
-                x="order_id",
-                y="customer_state",
-                orientation="h",
-                title="Top Bundesstaaten nach Bestellungen",
-                color_discrete_sequence=[COLORS["primary"]],
-                template=PLOTLY_TEMPLATE,
+            styled_chart(
+                px.bar(
+                    top_states,
+                    x="order_id",
+                    y="customer_state",
+                    orientation="h",
+                    title="Top Bundesstaaten nach Bestellungen",
+                    color_discrete_sequence=[COLORS["primary"]],
+                    template=PLOTLY_TEMPLATE,
+                )
             ),
             use_container_width=True,
         )
@@ -508,12 +602,14 @@ def main() -> None:
             fill_value=0,
         )
         st.plotly_chart(
-            px.imshow(
-                heatmap,
-                aspect="auto",
-                color_continuous_scale="Plasma",
-                title="Umsatz-Heatmap: Kategorie x Bundesstaat",
-                template=PLOTLY_TEMPLATE,
+            styled_chart(
+                px.imshow(
+                    heatmap,
+                    aspect="auto",
+                    color_continuous_scale="Plasma",
+                    title="Umsatz-Heatmap: Kategorie x Bundesstaat",
+                    template=PLOTLY_TEMPLATE,
+                )
             ),
             use_container_width=True,
         )
@@ -533,14 +629,16 @@ def main() -> None:
             col2.metric("Quellen", f"{products['source_system'].nunique()}")
 
             st.plotly_chart(
-                px.pie(
-                    source_counts,
-                    names="Quelle",
-                    values="Anzahl",
-                    title="Produkte nach Quelle",
-                    color_discrete_sequence=PALETTE,
-                    template=PLOTLY_TEMPLATE,
-                    hole=0.4,
+                styled_chart(
+                    px.pie(
+                        source_counts,
+                        names="Quelle",
+                        values="Anzahl",
+                        title="Produkte nach Quelle",
+                        color_discrete_sequence=PALETTE,
+                        template=PLOTLY_TEMPLATE,
+                        hole=0.4,
+                    )
                 ),
                 use_container_width=True,
             )
@@ -556,14 +654,16 @@ def main() -> None:
                 )
                 cat_counts.columns = ["Kategorie", "Anzahl"]
                 st.plotly_chart(
-                    px.bar(
-                        cat_counts,
-                        x="Anzahl",
-                        y="Kategorie",
-                        orientation="h",
-                        title="Top 15 Produktkategorien",
-                        color_discrete_sequence=[COLORS["teal"]],
-                        template=PLOTLY_TEMPLATE,
+                    styled_chart(
+                        px.bar(
+                            cat_counts,
+                            x="Anzahl",
+                            y="Kategorie",
+                            orientation="h",
+                            title="Top 15 Produktkategorien",
+                            color_discrete_sequence=[COLORS["teal"]],
+                            template=PLOTLY_TEMPLATE,
+                        )
                     ),
                     use_container_width=True,
                 )
@@ -574,14 +674,16 @@ def main() -> None:
                     eco_counts = eco.value_counts().sort_index().reset_index()
                     eco_counts.columns = ["Ecoscore", "Anzahl"]
                     st.plotly_chart(
-                        px.bar(
-                            eco_counts,
-                            x="Ecoscore",
-                            y="Anzahl",
-                            title="Open Food Facts Ecoscore-Verteilung",
-                            color="Ecoscore",
-                            color_discrete_sequence=PALETTE,
-                            template=PLOTLY_TEMPLATE,
+                        styled_chart(
+                            px.bar(
+                                eco_counts,
+                                x="Ecoscore",
+                                y="Anzahl",
+                                title="Open Food Facts Ecoscore-Verteilung",
+                                color="Ecoscore",
+                                color_discrete_sequence=PALETTE,
+                                template=PLOTLY_TEMPLATE,
+                            )
                         ),
                         use_container_width=True,
                     )
@@ -602,7 +704,7 @@ def main() -> None:
         session_columns[3].metric("Conversion Rate", f"{conversion_rate:.1f}%")
 
         for insight in derive_session_insights(sessions):
-            st.info(insight)
+            st.markdown(f'<div class="insight-card">{insight}</div>', unsafe_allow_html=True)
 
         event_totals = pd.DataFrame(
             {
@@ -616,14 +718,20 @@ def main() -> None:
         )
         col1, col2 = st.columns(2)
         col1.plotly_chart(
-            px.bar(
-                event_totals,
-                x="Event-Typ",
-                y="Anzahl",
-                color="Event-Typ",
-                color_discrete_sequence=[COLORS["primary"], COLORS["warning"], COLORS["success"]],
-                template=PLOTLY_TEMPLATE,
-                title="Events nach Typ",
+            styled_chart(
+                px.bar(
+                    event_totals,
+                    x="Event-Typ",
+                    y="Anzahl",
+                    color="Event-Typ",
+                    color_discrete_sequence=[
+                        COLORS["primary"],
+                        COLORS["warning"],
+                        COLORS["success"],
+                    ],
+                    template=PLOTLY_TEMPLATE,
+                    title="Events nach Typ",
+                )
             ),
             use_container_width=True,
         )
@@ -636,19 +744,22 @@ def main() -> None:
             )
         )
         funnel_fig.update_layout(
+            **PLOTLY_LAYOUT,
             template=PLOTLY_TEMPLATE,
             title="Conversion Funnel",
         )
-        col2.plotly_chart(funnel_fig, use_container_width=True)
+        col2.plotly_chart(styled_chart(funnel_fig), use_container_width=True)
 
         st.plotly_chart(
-            px.histogram(
-                sessions,
-                x="event_count",
-                nbins=20,
-                title="Verteilung der Events pro Session",
-                color_discrete_sequence=[COLORS["secondary"]],
-                template=PLOTLY_TEMPLATE,
+            styled_chart(
+                px.histogram(
+                    sessions,
+                    x="event_count",
+                    nbins=20,
+                    title="Verteilung der Events pro Session",
+                    color_discrete_sequence=[COLORS["secondary"]],
+                    template=PLOTLY_TEMPLATE,
+                )
             ),
             use_container_width=True,
         )
@@ -660,40 +771,46 @@ def main() -> None:
 
         if not weather.empty:
             st.plotly_chart(
-                px.line(
-                    weather,
-                    x="weather_date",
-                    y="avg_temperature_c",
-                    color="city",
-                    title="Temperaturverlauf",
-                    color_discrete_sequence=PALETTE,
-                    template=PLOTLY_TEMPLATE,
+                styled_chart(
+                    px.line(
+                        weather,
+                        x="weather_date",
+                        y="avg_temperature_c",
+                        color="city",
+                        title="Temperaturverlauf",
+                        color_discrete_sequence=PALETTE,
+                        template=PLOTLY_TEMPLATE,
+                    )
                 ),
                 use_container_width=True,
             )
             st.plotly_chart(
-                px.bar(
-                    weather,
-                    x="weather_date",
-                    y="precipitation_mm",
-                    color="city",
-                    title="Niederschlag",
-                    color_discrete_sequence=PALETTE,
-                    template=PLOTLY_TEMPLATE,
+                styled_chart(
+                    px.bar(
+                        weather,
+                        x="weather_date",
+                        y="precipitation_mm",
+                        color="city",
+                        title="Niederschlag",
+                        color_discrete_sequence=PALETTE,
+                        template=PLOTLY_TEMPLATE,
+                    )
                 ),
                 use_container_width=True,
             )
 
         if not fx.empty:
             st.plotly_chart(
-                px.line(
-                    fx,
-                    x="rate_date",
-                    y="fx_rate",
-                    color="quote_currency",
-                    title="EUR/USD und EUR/BRL Wechselkurse",
-                    color_discrete_sequence=[COLORS["warning"], COLORS["success"]],
-                    template=PLOTLY_TEMPLATE,
+                styled_chart(
+                    px.line(
+                        fx,
+                        x="rate_date",
+                        y="fx_rate",
+                        color="quote_currency",
+                        title="EUR/USD und EUR/BRL Wechselkurse",
+                        color_discrete_sequence=[COLORS["warning"], COLORS["success"]],
+                        template=PLOTLY_TEMPLATE,
+                    )
                 ),
                 use_container_width=True,
             )
@@ -703,15 +820,17 @@ def main() -> None:
         )
         if not correlation_frame.empty:
             st.plotly_chart(
-                px.scatter(
-                    correlation_frame,
-                    x="avg_temperature_c",
-                    y="payment_value_brl",
-                    color="customer_state",
-                    opacity=0.6,
-                    title="Temperatur vs. Bestellwert",
-                    color_discrete_sequence=PALETTE,
-                    template=PLOTLY_TEMPLATE,
+                styled_chart(
+                    px.scatter(
+                        correlation_frame,
+                        x="avg_temperature_c",
+                        y="payment_value_brl",
+                        color="customer_state",
+                        opacity=0.6,
+                        title="Temperatur vs. Bestellwert",
+                        color_discrete_sequence=PALETTE,
+                        template=PLOTLY_TEMPLATE,
+                    )
                 ),
                 use_container_width=True,
             )
