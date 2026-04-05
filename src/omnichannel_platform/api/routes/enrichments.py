@@ -1,4 +1,9 @@
-"""Enrichment data endpoints (products, weather, FX rates)."""
+"""Enrichment-Endpunkte: Products, Weather und FX-Rates.
+
+GET /api/v1/products   -> dim_products (mit Filter nach source_system)
+GET /api/v1/weather    -> raw.open_meteo_weather (mit Filter nach Stadt/Datum)
+GET /api/v1/fx-rates   -> raw.frankfurter_fx_rates (mit Filter nach Waehrung/Datum)
+"""
 
 from __future__ import annotations
 

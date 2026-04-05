@@ -1,4 +1,8 @@
-"""Session endpoints for the Omnichannel Commerce REST API."""
+"""Session-Endpunkte: GET /api/v1/sessions und GET /api/v1/sessions/funnel.
+
+Liest aus der Mart-Tabelle fct_retailrocket_sessions.
+Funnel-Endpunkt berechnet Conversion-Rate (Views -> AddToCart -> Transaction).
+"""
 
 from __future__ import annotations
 

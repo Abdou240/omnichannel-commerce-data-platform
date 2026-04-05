@@ -1,4 +1,8 @@
-"""Pipeline status and health endpoints."""
+"""Pipeline-Status und Health-Endpunkte.
+
+GET /api/v1/health          -> Datenbank-Erreichbarkeit pruefen
+GET /api/v1/pipeline/status -> Audit-Log + Tabellenstatistiken (Zeilen, Spalten)
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,9 @@
-"""Shared database engine for the FastAPI application."""
+"""Datenbank-Zugriff fuer die FastAPI-API.
+
+Stellt eine gecachte SQLAlchemy-Engine bereit und bietet Hilfsfunktionen
+fuer SQL-Abfragen (query_dataframe) und Health-Checks (check_database).
+Schema-Namen werden per Umgebungsvariable konfiguriert.
+"""
 
 from __future__ import annotations
 

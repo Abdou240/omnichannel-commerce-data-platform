@@ -1,3 +1,10 @@
+"""Batch-Source-Plaene: Liest die Quellkonfiguration und erstellt Plan-Objekte.
+
+Jeder BatchSourcePlan beschreibt eine Datenquelle (Name, Typ, Landing-Pfad,
+optionale Mongo-Collection, Raw-Schema und quellspezifische Details).
+Die Plaene werden aus config/base.yaml + config/<env>.yaml geladen.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -8,6 +15,8 @@ from omnichannel_platform.common.settings import load_settings
 
 @dataclass(frozen=True)
 class BatchSourcePlan:
+    """Konfigurationsplan fuer eine einzelne Batch-Datenquelle."""
+
     source_name: str
     source_kind: str
     landing_path: str
@@ -70,6 +79,7 @@ def build_frankfurter_plan(environment: str) -> BatchSourcePlan:
 
 
 def build_batch_plans(environment: str) -> list[BatchSourcePlan]:
+    """Erstellt alle 4 Batch-Plaene in der Ausfuehrungsreihenfolge."""
     return [
         build_olist_plan(environment),
         build_open_food_facts_plan(environment),

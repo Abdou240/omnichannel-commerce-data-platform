@@ -1,4 +1,8 @@
-"""Order endpoints for the Omnichannel Commerce REST API."""
+"""Order-Endpunkte: GET /api/v1/orders (mit Filtern) und GET /api/v1/orders/kpis.
+
+Liest aus der Mart-Tabelle fct_commerce_orders (staging/marts Schema).
+Unterstuetzt Filter nach Status, Kategorie, Bundesstaat, Datumsbereich und Pagination.
+"""
 
 from __future__ import annotations
 

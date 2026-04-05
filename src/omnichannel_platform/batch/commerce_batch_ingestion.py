@@ -1,13 +1,17 @@
-"""Batch ingestion for the Omnichannel Commerce platform.
+"""Batch-Ingestion fuer die Omnichannel Commerce Data Platform.
 
-Implemented starter flows:
-  - Olist relational seed generation and PostgreSQL raw loads
-  - Open Food Facts product pulls with bronze landing and optional Mongo raw docs
-  - Open-Meteo weather enrichment pulls for configured Brazilian cities
-  - Frankfurter FX rate pulls with bronze landing and optional Mongo raw docs
+Verarbeitet 4 Datenquellen sequenziell und laedt sie in PostgreSQL (raw.*):
+  1. Olist:           Deterministische Seed-CSVs -> 5 Raw-Tabellen (2401 Zeilen)
+  2. Open Food Facts: Produkt-API (Barcodes) -> raw.open_food_facts_products
+  3. Open-Meteo:      Wetter-API (3 Staedte, 2018) -> raw.open_meteo_weather
+  4. Frankfurter:     FX-Raten-API (EUR->USD/BRL) -> raw.frankfurter_fx_rates
 
-This module keeps the foundations realistic without pretending to be
-production-complete. Secrets, stateful watermarks, and retries remain TODOs.
+Jede Quelle hat einen Fallback-Mechanismus bei API-Fehlern.
+Bronze-Artefakte werden unter storage/bronze/<source>/ geschrieben.
+Jeder Lauf wird in raw.ingestion_audit protokolliert.
+
+Aufruf:
+  python -m omnichannel_platform.batch.commerce_batch_ingestion --env dev [--source olist]
 """
 
 from __future__ import annotations
@@ -39,6 +43,8 @@ from omnichannel_platform.common.logging import get_logger
 
 LOGGER = get_logger(__name__)
 
+# ── Olist-Konfiguration ─────────────────────────────────────────────────────
+# Mapping von CSV-Dateinamen zu PostgreSQL-Tabellennamen im raw-Schema
 OLIST_FILE_TABLE_MAP = {
     "olist_orders_dataset.csv": "olist_orders",
     "olist_order_items_dataset.csv": "olist_order_items",
@@ -47,6 +53,7 @@ OLIST_FILE_TABLE_MAP = {
     "olist_order_payments_dataset.csv": "olist_order_payments",
 }
 
+# Spalten, die beim CSV-Einlesen als Datum geparst werden sollen
 OLIST_DATE_COLUMNS = {
     "olist_orders_dataset.csv": [
         "order_purchase_timestamp",
@@ -69,6 +76,7 @@ def mongo_database_name() -> str:
 
 
 def audit_batch(engine: Engine, source_name: str, batch_id: str, row_count: int) -> None:
+    """Schreibt einen Eintrag in raw.ingestion_audit (Upsert bei gleichem source_name + batch_id)."""
     with engine.begin() as connection:
         connection.execute(
             text(
@@ -91,6 +99,7 @@ def truncate_raw_table(engine: Engine, table_name: str) -> None:
 
 
 def load_dataframe(engine: Engine, table_name: str, dataframe: pd.DataFrame) -> int:
+    """TRUNCATE + APPEND: Leert die Zieltabelle und fuegt alle Zeilen neu ein."""
     truncate_raw_table(engine, table_name)
     if dataframe.empty:
         return 0
@@ -154,6 +163,7 @@ def normalize_date_series(series: pd.Series) -> pd.Series:
 def normalize_frankfurter_payload(
     payload: list[dict[str, Any]], ingested_at: datetime
 ) -> list[dict[str, Any]]:
+    """Normalisiert Frankfurter API v2 Response (flache Liste) in DB-Rows."""
     rows: list[dict[str, Any]] = []
     for entry in payload:
         rate_date = entry.get("date")
@@ -178,6 +188,7 @@ def normalize_frankfurter_payload(
 
 
 def _seed_olist_frames() -> dict[str, pd.DataFrame]:
+    """Erzeugt deterministische Olist-Testdaten (Seed=42): 500 Orders, 250 Kunden, 150 Produkte."""
     rng = random.Random(42)
     base_purchase_ts = datetime(2018, 1, 1, 8, 0, tzinfo=timezone.utc)
 
@@ -310,7 +321,11 @@ def read_olist_dataframe(file_name: str, csv_path: Path) -> pd.DataFrame:
     return pd.read_csv(csv_path, parse_dates=parse_dates)
 
 
+# ── Quell-spezifische Ingestoren ────────────────────────────────────────────
+
+
 def ingest_olist(plan: BatchSourcePlan, engine: Engine) -> int:
+    """Olist-Ingestion: CSV-Seeds erzeugen/lesen -> 5 Raw-Tabellen laden."""
     batch_id = build_batch_id("olist")
     csv_paths = ensure_olist_seed_files(plan)
     output_dir = run_artifact_dir(plan.landing_path, batch_id)
@@ -363,6 +378,7 @@ def normalize_open_food_facts_product(
 
 
 def ingest_open_food_facts(plan: BatchSourcePlan, engine: Engine) -> int:
+    """Open Food Facts: Produkt-API Barcodes abrufen -> raw.open_food_facts_products."""
     batch_id = build_batch_id("open-food-facts")
     ingested_at = utc_now()
     output_dir = run_artifact_dir(plan.landing_path, batch_id)
@@ -488,6 +504,7 @@ def generate_weather_fallback_rows(
 
 
 def ingest_open_meteo(plan: BatchSourcePlan, engine: Engine) -> int:
+    """Open-Meteo: Wetter-Tagesdaten (3 Staedte, 2018) -> raw.open_meteo_weather."""
     batch_id = build_batch_id("open-meteo")
     ingested_at = utc_now()
     output_dir = run_artifact_dir(plan.landing_path, batch_id)
@@ -606,6 +623,7 @@ def generate_fx_fallback_rows(plan: BatchSourcePlan, ingested_at: datetime) -> l
 
 
 def ingest_frankfurter(plan: BatchSourcePlan, engine: Engine) -> int:
+    """Frankfurter: FX-Raten (EUR->USD/BRL, 2018) -> raw.frankfurter_fx_rates."""
     batch_id = build_batch_id("frankfurter")
     ingested_at = utc_now()
     output_dir = run_artifact_dir(plan.landing_path, batch_id)
@@ -675,6 +693,7 @@ def ingest_frankfurter(plan: BatchSourcePlan, engine: Engine) -> int:
     return loaded_rows
 
 
+# ── Dispatcher: Source-Name -> Ingestor-Funktion ───────────────────────────
 INGESTORS = {
     "olist": ingest_olist,
     "open_food_facts": ingest_open_food_facts,
@@ -683,7 +702,11 @@ INGESTORS = {
 }
 
 
+# ── Hauptablauf und CLI ─────────────────────────────────────────────────────
+
+
 def run(environment: str, source_name: str) -> None:
+    """Fuehrt die Batch-Ingestion fuer eine oder alle Quellen aus."""
     LOGGER.info("Starting omnichannel batch ingestion for environment=%s", environment)
     engine = create_postgres_engine()
     ensure_postgres_is_reachable(engine)

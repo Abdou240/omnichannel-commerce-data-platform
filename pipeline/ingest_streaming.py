@@ -21,5 +21,7 @@ columns:
         value: ["view", "addtocart", "transaction"]
 @bruin */"""
 
-# Actual execution handled by:
+# ── Bruin Asset-Definition: Retailrocket Streaming-Replay ──────────────────
+# Definiert die Streaming-Datenquelle im Bruin-DAG.
+# Ausfuehrung:
 #   python -m omnichannel_platform.streaming.clickstream_consumer --env dev --mode replay

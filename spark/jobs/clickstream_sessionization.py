@@ -1,3 +1,19 @@
+"""PySpark-Job: Clickstream-Sessionisierung.
+
+Liest Retailrocket-Events aus JSONL, berechnet Sessions basierend auf
+einer konfigurierbaren Inaktivitaetsluecke (Default: 30 Min) und schreibt
+Session-Zusammenfassungen als Parquet.
+
+Jede Session enthaelt: session_key, visitor_id, Start/Ende, Event-Counts
+(view, addtocart, transaction) und ein Beispiel-Item.
+
+Aufruf:
+  spark-submit spark/jobs/clickstream_sessionization.py \\
+    --input-path data/sample/streaming/retailrocket_events.jsonl \\
+    --output-path storage/gold/retailrocket_sessions \\
+    --gap-minutes 30
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -23,6 +39,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    """Hauptablauf: Events lesen -> Sessionisieren -> Aggregieren -> Parquet schreiben."""
     args = parse_args()
     input_path = Path(args.input_path)
     if not input_path.exists():
@@ -31,6 +48,7 @@ def main() -> None:
     spark = SparkSession.builder.appName("clickstream-sessionization-starter").getOrCreate()
     spark.sparkContext.setLogLevel("WARN")
 
+    # Event-Schema: 6 Felder pro Zeile in der JSONL-Datei
     schema = T.StructType(
         [
             T.StructField("event_id", T.StringType(), True),
@@ -42,6 +60,7 @@ def main() -> None:
         ]
     )
 
+    # Events lesen und normalisieren (event_type lowercase, Timestamp parsen)
     raw_events = spark.read.schema(schema).json(str(input_path))
     normalized_events = (
         raw_events.withColumn("event_type", F.lower(F.col("event_type")))
@@ -49,6 +68,7 @@ def main() -> None:
         .filter(F.col("event_id").isNotNull() & F.col("visitor_id").isNotNull())
     )
 
+    # Sessionisierung: Neue Session wenn Luecke > gap_minutes zwischen Events
     window = Window.partitionBy("visitor_id").orderBy("event_ts", "event_id")
     sessionized = (
         normalized_events.withColumn("previous_event_ts", F.lag("event_ts").over(window))
@@ -72,6 +92,7 @@ def main() -> None:
         )
     )
 
+    # Aggregation pro Session: Start/Ende, Event-Counts nach Typ, Beispiel-Item
     session_summary = sessionized.groupBy("session_key", "visitor_id").agg(
         F.min("event_ts").alias("session_start_ts"),
         F.max("event_ts").alias("session_end_ts"),

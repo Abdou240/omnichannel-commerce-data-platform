@@ -1,4 +1,11 @@
-"""Pydantic response models for the Omnichannel Commerce REST API."""
+"""Pydantic Response-Modelle fuer die REST API.
+
+Definiert die Antwortstrukturen fuer alle API-Endpunkte:
+  - Orders (OrderRow, OrderKPIs)
+  - Sessions (SessionRow, SessionFunnel)
+  - Enrichments (ProductRow, WeatherRow, FxRateRow)
+  - Pipeline (AuditRow, TableStat, PipelineStatus, HealthResponse)
+"""
 
 from __future__ import annotations
 

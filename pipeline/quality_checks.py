@@ -6,6 +6,8 @@ depends:
 description: Run data quality checks (custom SQL expectations + Great Expectations)
 @bruin */"""
 
-# Actual execution handled by:
-#   python -m omnichannel_platform.quality.rules_catalog --non-strict
-#   python -m omnichannel_platform.quality.gx_validation --non-strict
+# ── Bruin Asset-Definition: Datenqualitaet ─────────────────────────────────
+# Letzter Schritt im DAG: Laeuft nach der dbt-Transformation.
+# Fuehrt beide Quality-Engines aus:
+#   1. SQL-Expectations: python -m omnichannel_platform.quality.rules_catalog --non-strict
+#   2. Great Expectations: python -m omnichannel_platform.quality.gx_validation --non-strict

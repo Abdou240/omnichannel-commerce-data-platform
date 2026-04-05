@@ -1,3 +1,16 @@
+"""SQL-basierte Datenqualitaetspruefung.
+
+Liest YAML-Contracts aus quality/contracts/ und fuehrt SQL-Expectations
+aus quality/expectations/ gegen PostgreSQL aus. Jede SQL-Datei soll
+fehlerhafte Zeilen zurueckgeben -- 0 Zeilen = bestanden.
+
+Ergebnis wird als JSON-Report nach storage/checkpoints/quality/last_run.json
+geschrieben.
+
+Aufruf:
+  python -m omnichannel_platform.quality.rules_catalog [--non-strict]
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -16,6 +29,8 @@ LOGGER = get_logger(__name__)
 
 @dataclass(frozen=True)
 class QualityExpectationResult:
+    """Ergebnis einer einzelnen SQL-Expectation (passed/failed/skipped)."""
+
     name: str
     status: str
     row_count: int
@@ -24,6 +39,7 @@ class QualityExpectationResult:
 
 
 def list_quality_assets() -> dict[str, list[str]]:
+    """Entdeckt alle Quality-Assets: YAML-Contracts und SQL-Expectations im quality/-Verzeichnis."""
     root = repo_root()
     return {
         "contracts": sorted(
@@ -76,6 +92,7 @@ def optional_postgres_engine():
 
 
 def execute_expectation(path: Path, engine) -> QualityExpectationResult:
+    """Fuehrt eine SQL-Expectation aus. Rueckgabe-Zeilen = Fehler, 0 Zeilen = bestanden."""
     if engine is None:
         return QualityExpectationResult(
             name=path.stem,

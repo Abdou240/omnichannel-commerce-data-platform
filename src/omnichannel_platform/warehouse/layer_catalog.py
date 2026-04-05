@@ -1,3 +1,12 @@
+"""Warehouse-Layer-Katalog: Uebersicht aller Datenbank-Assets pro Schicht.
+
+Listet alle Assets in den 3 Warehouse-Schichten (raw, staging, marts)
+und zeigt die zugehoerige Engine. Dient zur Dokumentation und Planung.
+
+Aufruf:
+  python -m omnichannel_platform.warehouse.layer_catalog --env dev
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -11,6 +20,8 @@ LOGGER = get_logger(__name__)
 
 @dataclass(frozen=True)
 class WarehouseLayerPlan:
+    """Beschreibt eine Warehouse-Schicht mit ihren Assets und der genutzten Engine."""
+
     layer_name: str
     assets: list[str]
     warehouse_engine: str

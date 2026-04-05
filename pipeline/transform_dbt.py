@@ -8,5 +8,8 @@ depends:
 description: Run dbt build to transform raw data into staging views and mart tables
 @bruin */"""
 
-# Actual execution handled by:
+# ── Bruin Asset-Definition: dbt Transformation ─────────────────────────────
+# Abhaengig von allen 3 Raw-Ingestoren. Fuehrt dbt build aus, das
+# 9 Staging Views + 2 Intermediate Views + 3 Mart Tables erstellt.
+# Ausfuehrung:
 #   dbt build --project-dir warehouse/dbt --profiles-dir .dbt

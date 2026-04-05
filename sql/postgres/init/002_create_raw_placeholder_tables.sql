@@ -1,3 +1,10 @@
+-- ============================================================================
+-- 002: Raw-Tabellen-Definitionen fuer alle 9 Datenquellen
+-- Wird beim ersten Start des PostgreSQL-Containers ausgefuehrt.
+-- Die Batch- und Streaming-Pipelines fuellen diese Tabellen per TRUNCATE + INSERT.
+-- ============================================================================
+
+-- ── Olist Commerce-Daten (5 Tabellen) ──────────────────────────────────────
 create table if not exists raw.olist_orders (
     order_id text,
     customer_id text,
@@ -39,6 +46,7 @@ create table if not exists raw.olist_order_payments (
     payment_value numeric(12, 2)
 );
 
+-- ── Retailrocket Clickstream-Events ─────────────────────────────────────────
 create table if not exists raw.retailrocket_events (
     event_id text,
     visitor_id text,
@@ -49,6 +57,7 @@ create table if not exists raw.retailrocket_events (
     kafka_topic text
 );
 
+-- ── Enrichment-Daten (3 Tabellen) ──────────────────────────────────────────
 create table if not exists raw.open_food_facts_products (
     product_code text,
     product_name text,

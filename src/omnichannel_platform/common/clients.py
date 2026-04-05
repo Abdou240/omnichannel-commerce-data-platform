@@ -1,3 +1,10 @@
+"""Datenbank-Clients fuer PostgreSQL und MongoDB.
+
+PostgreSQL ist die primaere Datenbank (raw/staging/marts Schemas).
+MongoDB dient als optionaler Raw-Document-Store fuer JSON-Payloads.
+Beide werden ueber Umgebungsvariablen konfiguriert (POSTGRES_*, MONGO_URI).
+"""
+
 from __future__ import annotations
 
 import os
@@ -13,6 +20,8 @@ LOGGER = get_logger(__name__)
 
 @dataclass(frozen=True)
 class PostgresConnectionSettings:
+    """Verbindungsparameter fuer PostgreSQL, gelesen aus Umgebungsvariablen."""
+
     host: str
     port: str
     database: str
@@ -21,6 +30,7 @@ class PostgresConnectionSettings:
 
 
 def postgres_connection_settings_from_env() -> PostgresConnectionSettings:
+    """Liest PostgreSQL-Verbindungsdaten aus POSTGRES_*-Umgebungsvariablen."""
     return PostgresConnectionSettings(
         host=os.getenv("POSTGRES_HOST", "localhost"),
         port=os.getenv("POSTGRES_PORT", "5432"),
@@ -31,6 +41,7 @@ def postgres_connection_settings_from_env() -> PostgresConnectionSettings:
 
 
 def create_postgres_engine():
+    """Erstellt eine SQLAlchemy-Engine mit Connection-Timeout und Pool-Pre-Ping."""
     settings = postgres_connection_settings_from_env()
     return create_engine(
         "postgresql+psycopg://"
@@ -43,6 +54,7 @@ def create_postgres_engine():
 def ensure_postgres_is_reachable(
     engine, settings: PostgresConnectionSettings | None = None
 ) -> None:
+    """Prueft ob PostgreSQL erreichbar ist. Bricht mit Hilfemeldung ab, falls nicht."""
     active_settings = settings or postgres_connection_settings_from_env()
 
     try:
@@ -64,6 +76,7 @@ def ensure_postgres_is_reachable(
 
 
 def optional_mongo_collection(database_name: str, collection_name: str):
+    """Versucht eine MongoDB-Collection zu oeffnen. Gibt None zurueck, falls Mongo nicht erreichbar."""
     try:
         from pymongo import MongoClient
         from pymongo.errors import PyMongoError
@@ -88,6 +101,7 @@ def optional_mongo_collection(database_name: str, collection_name: str):
 def insert_many_documents(
     database_name: str, collection_name: str, documents: list[dict[str, Any]]
 ) -> int:
+    """Fuegt Dokumente in MongoDB ein (graceful skip falls nicht erreichbar)."""
     if not documents:
         return 0
 

@@ -1,3 +1,16 @@
+"""Testbare Dashboard-Logik (getrennt von Streamlit-UI).
+
+Enthaelt reine Python-Funktionen fuer:
+  - DB-Verbindungsaufbau (dashboard_database_url)
+  - Schema-Aufloesung (warehouse_schema, raw_schema)
+  - Bestellungs-Filterung (apply_order_filters)
+  - Tabellenstatistiken (build_table_stats)
+  - Commerce- und Session-Insights (derive_commerce_insights, derive_session_insights)
+
+Diese Funktionen werden von dashboard/app.py aufgerufen und in
+tests/unit/test_dashboard_logic.py und test_dashboard_insights.py getestet.
+"""
+
 from __future__ import annotations
 
 import os
@@ -8,6 +21,7 @@ import pandas as pd
 
 
 def dashboard_database_url() -> str:
+    """Baut die PostgreSQL-Connection-URL aus Umgebungsvariablen."""
     return (
         f"postgresql+psycopg://"
         f"{os.getenv('POSTGRES_USER', 'commerce')}:"
@@ -71,6 +85,7 @@ def build_table_stats(named_frames: Mapping[str, pd.DataFrame]) -> pd.DataFrame:
 
 
 def derive_commerce_insights(dataframe: pd.DataFrame) -> list[str]:
+    """Leitet Commerce-Insights ab: Top-Kategorie, Top-Bundesstaat, Lieferquote."""
     if dataframe.empty:
         return ["Keine Commerce-Daten nach Anwendung der aktuellen Filter."]
 
@@ -100,6 +115,7 @@ def derive_commerce_insights(dataframe: pd.DataFrame) -> list[str]:
 
 
 def derive_session_insights(dataframe: pd.DataFrame) -> list[str]:
+    """Leitet Session-Insights ab: Conversion-Rate, Avg Events, haeufigstes Item."""
     if dataframe.empty:
         return ["Keine Session-Daten vorhanden."]
 

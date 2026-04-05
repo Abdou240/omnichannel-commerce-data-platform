@@ -22,5 +22,8 @@ columns:
       - name: not_null
 @bruin */"""
 
-# Actual execution handled by:
+# ── Bruin Asset-Definition: Olist Batch-Ingestion ──────────────────────────
+# Dieses Asset definiert die Olist-Datenquelle im Bruin-DAG.
+# Die eigentliche Ausfuehrung erfolgt ueber das Python-Modul:
 #   python -m omnichannel_platform.batch.commerce_batch_ingestion --env dev --source olist
+# Bruin nutzt die obigen Metadaten fuer DAG-Abhaengigkeiten und Column-Checks.

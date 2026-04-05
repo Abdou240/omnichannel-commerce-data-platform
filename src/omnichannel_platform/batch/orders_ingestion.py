@@ -1,3 +1,9 @@
+"""Convenience-Wrapper fuer Olist-only Batch-Ingestion.
+
+Alternativer Einstiegspunkt, der nur die Olist-Quelle verarbeitet.
+Aequivalent zu: python -m omnichannel_platform.batch.commerce_batch_ingestion --source olist
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -9,6 +15,7 @@ LOGGER = get_logger(__name__)
 
 
 def run(environment: str) -> None:
+    """Fuehrt nur die Olist-Batch-Ingestion aus (delegiert an commerce_batch_ingestion)."""
     LOGGER.info("Running Olist-only batch ingestion wrapper for environment=%s", environment)
     run_batch_ingestion(environment, "olist")
 

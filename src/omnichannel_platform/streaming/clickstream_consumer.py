@@ -1,3 +1,20 @@
+"""Streaming-Ingestion: Retailrocket Clickstream Replay.
+
+Liest Events aus einer JSONL-Datei, normalisiert sie, routet sie auf
+Kafka-Topics (wenn verfuegbar) und persistiert sie in PostgreSQL + MongoDB.
+
+Ablauf:
+  1. JSONL lesen (data/sample/streaming/retailrocket_events.jsonl)
+  2. Events normalisieren (event_type -> lowercase, Ziel-Topic zuweisen)
+  3. Optional: Kafka-Publish auf Raw-Topic + typspezifischen Topic
+  4. PostgreSQL: TRUNCATE + INSERT in raw.retailrocket_events
+  5. Optional: MongoDB-Persist der Roh-Events
+  6. Checkpoint + Replay-Archiv schreiben
+
+Aufruf:
+  python -m omnichannel_platform.streaming.clickstream_consumer --env dev --mode replay
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -18,6 +35,8 @@ LOGGER = get_logger(__name__)
 
 @dataclass(frozen=True)
 class StreamingIngestionPlan:
+    """Konfigurationsplan fuer den Streaming-Replay (Topics, Broker, Checkpoint)."""
+
     replay_source: str
     raw_topic: str
     event_topics: dict[str, str]
@@ -45,12 +64,14 @@ def build_plan(environment: str) -> StreamingIngestionPlan:
 
 
 def route_event_topic(event_type: str, event_topics: dict[str, str]) -> str:
+    """Bestimmt den Ziel-Kafka-Topic anhand des Event-Typs (view/addtocart/transaction/dlq)."""
     return event_topics.get(event_type.lower(), event_topics["default"])
 
 
 def normalize_retailrocket_event(
     raw_event: dict[str, Any], event_topics: dict[str, str]
 ) -> dict[str, Any]:
+    """Normalisiert ein Roh-Event: Lowercase event_type, String-IDs, Topic-Zuweisung."""
     event_type = str(raw_event["event_type"]).lower()
     return {
         "event_id": str(raw_event["event_id"]),
@@ -66,6 +87,7 @@ def normalize_retailrocket_event(
 
 
 def optional_kafka_producer(bootstrap_servers: str | None):
+    """Erstellt einen KafkaProducer, falls Broker erreichbar. Gibt None zurueck bei Fehler."""
     if not bootstrap_servers:
         return None
 
@@ -94,6 +116,7 @@ def mongo_database_name() -> str:
 
 
 def persist_to_postgres(engine, rows: list[dict[str, Any]]) -> int:
+    """TRUNCATE + INSERT aller normalisierten Events in raw.retailrocket_events."""
     if not rows:
         return 0
 
@@ -164,6 +187,7 @@ def write_replay_artifacts(
 
 
 def run_replay(plan: StreamingIngestionPlan, mode: str, engine) -> dict[str, Any]:
+    """Fuehrt den kompletten Replay-Durchlauf aus: Lesen -> Normalisieren -> Persist."""
     replay_source = Path(plan.replay_source)
     raw_events = read_jsonl(replay_source)
     normalized_rows = [

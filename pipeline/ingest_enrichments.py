@@ -15,5 +15,7 @@ columns:
       - name: not_null
 @bruin */"""
 
-# Actual execution handled by:
-#   python -m omnichannel_platform.batch.commerce_batch_ingestion --env dev --source enrichments
+# ── Bruin Asset-Definition: Enrichment-Datenquellen ────────────────────────
+# Fasst Open Food Facts, Open-Meteo und Frankfurter in einem DAG-Knoten zusammen.
+# Ausfuehrung (alle 3 Quellen):
+#   python -m omnichannel_platform.batch.commerce_batch_ingestion --env dev

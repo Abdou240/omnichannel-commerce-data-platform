@@ -1,10 +1,17 @@
-"""Great Expectations validation runner for the Omnichannel Commerce Data Platform.
+"""Great Expectations (GX) Validation Runner.
 
-Runs programmatic GX expectations against PostgreSQL tables.
-Requires Python <3.14 (GX constraint) — intended for CI (Python 3.11) and Docker.
+Fuehrt programmatische GX-Expectations gegen 5 PostgreSQL-Tabellen aus:
+  - raw.olist_orders (Not-Null, Unique, Accepted Values)
+  - raw.retailrocket_events (Not-Null, Accepted Values, Row Count)
+  - raw.frankfurter_fx_rates (Not-Null, Row Count)
+  - raw.open_meteo_weather (Not-Null, Row Count)
+  - marts.fct_commerce_orders (Not-Null, Unique, Row Count)
 
-Usage:
-    python -m omnichannel_platform.quality.gx_validation [--non-strict]
+Erfordert Python <3.14 (GX-Abhaengigkeit). Bei ImportError wird graceful uebersprungen.
+Report wird nach storage/checkpoints/great_expectations/last_run.json geschrieben.
+
+Aufruf:
+  python -m omnichannel_platform.quality.gx_validation [--non-strict]
 """
 
 from __future__ import annotations

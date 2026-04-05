@@ -1,13 +1,13 @@
-"""FastAPI application for the Omnichannel Commerce Data Platform.
+"""FastAPI REST API fuer die Omnichannel Commerce Data Platform.
 
-Provides a REST API layer between the PostgreSQL warehouse and any client
-(Streamlit dashboard, Jupyter notebooks, BI tools, mobile apps).
+Data-Access-Layer zwischen PostgreSQL-Warehouse und Clients (Dashboard, BI-Tools).
+4 Router: Orders, Sessions, Enrichments (Products/Weather/FX), Pipeline-Status.
 
-Run locally:
-    uvicorn omnichannel_platform.api.main:app --reload --port 8000
+Aufruf:
+  uvicorn omnichannel_platform.api.main:app --reload --port 8000
+  python -m omnichannel_platform.api.main
 
-Run via module:
-    python -m omnichannel_platform.api.main
+Swagger-Docs: http://localhost:8000/docs
 """
 
 from __future__ import annotations
@@ -16,6 +16,7 @@ from fastapi import FastAPI
 
 from omnichannel_platform.api.routes import enrichments, orders, pipeline, sessions
 
+# ── FastAPI-App mit 4 Routern ───────────────────────────────────────────────
 app = FastAPI(
     title="Omnichannel Commerce Data Platform API",
     description=(
@@ -26,6 +27,7 @@ app = FastAPI(
     version="0.1.0",
 )
 
+# Router registrieren: /api/v1/orders, /api/v1/sessions, /api/v1/products|weather|fx-rates, /api/v1/health|pipeline
 app.include_router(orders.router)
 app.include_router(sessions.router)
 app.include_router(enrichments.router)
